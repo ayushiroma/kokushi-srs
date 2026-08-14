@@ -30,8 +30,12 @@ export class LogStore {
     const logs: ReviewEntry[][] = []
     for (const file of listed.files) {
       if (!file.endsWith('.md')) continue
+      // adapter.list() の戻り値が「Vault基準のフルパス」か「ファイル名のみ」かは
+      // Obsidianの型定義で保証されていない。読めなければ readAll が空配列を返し、
+      // 学習記録が全部消えたように見えるため、どちらでも動くように正規化する。
+      const path = file.includes('/') ? file : `${LOG_DIR}/${file}`
       try {
-        logs.push(parseLog(await adapter.read(file)))
+        logs.push(parseLog(await adapter.read(path)))
       } catch {
         continue
       }
