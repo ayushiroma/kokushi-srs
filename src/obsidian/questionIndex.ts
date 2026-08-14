@@ -11,6 +11,14 @@ export interface QuestionMeta {
   number: number
   field: string
   tags: string[]
+  /** frontmatter の `knowledge`。`[[ ]]` 付きの生の文字列のまま持つ */
+  knowledge: string[]
+}
+
+function toStringArray(value: unknown): string[] {
+  if (typeof value === 'string') return [value]
+  if (Array.isArray(value)) return value.filter((v): v is string => typeof v === 'string')
+  return []
 }
 
 export function indexQuestions(app: App): QuestionMeta[] {
@@ -28,6 +36,8 @@ export function indexQuestions(app: App): QuestionMeta[] {
       number: typeof fm.number === 'number' ? fm.number : 0,
       field: typeof fm.field === 'string' ? fm.field : '',
       tags: Array.isArray(fm.tags) ? fm.tags.filter((t): t is string => typeof t === 'string') : [],
+      // 1件だけのときにObsidianが配列でなく文字列で返すことがあるため、両方受ける
+      knowledge: toStringArray(fm.knowledge),
     })
   }
   return metas.sort((a, b) => {

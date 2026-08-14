@@ -1,6 +1,7 @@
 import { Notice, Plugin } from 'obsidian'
 import { registerAnswerBlock } from './obsidian/answerBlock'
 import { earliestExamDate, loadConfig } from './obsidian/config'
+import { registerKnowledgeMapBlock } from './obsidian/knowledgeMapBlock'
 import { registerListBlock } from './obsidian/listBlock'
 import { LogStore } from './obsidian/logStore'
 import { indexQuestions } from './obsidian/questionIndex'
@@ -16,6 +17,7 @@ export default class KokushiPlugin extends Plugin {
     registerTodayBlock(this)
     registerListBlock(this)
     registerWeaknessBlock(this)
+    registerKnowledgeMapBlock(this)
 
     this.addCommand({
       id: 'kokushi-debug-index',
