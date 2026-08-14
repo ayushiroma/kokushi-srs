@@ -3,6 +3,7 @@ import { registerAnswerBlock } from './obsidian/answerBlock'
 import { earliestExamDate, loadConfig } from './obsidian/config'
 import { LogStore } from './obsidian/logStore'
 import { indexQuestions } from './obsidian/questionIndex'
+import { registerTodayBlock } from './obsidian/todayBlock'
 
 export default class KokushiPlugin extends Plugin {
   logStore!: LogStore
@@ -10,6 +11,7 @@ export default class KokushiPlugin extends Plugin {
   override async onload(): Promise<void> {
     this.logStore = new LogStore(this.app)
     registerAnswerBlock(this)
+    registerTodayBlock(this)
 
     this.addCommand({
       id: 'kokushi-debug-index',
