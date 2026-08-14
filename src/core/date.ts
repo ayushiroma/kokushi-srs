@@ -1,9 +1,20 @@
+/**
+ * このシステムの「日付」はすべて日本時間（JST, UTC+9）で判定する。
+ *
+ * 国家試験は日本で行われ、利用者も日本にいる。実行環境のタイムゾーン設定によって
+ * 「今日」がずれると、復習日が1日ずれる。OSの設定に結果を左右させない。
+ * 日本には夏時間が無いため、固定オフセット +9時間 で厳密に正しい。
+ */
+const JST_OFFSET_MS = 9 * 60 * 60 * 1000
+
 function pad(n: number): string {
   return String(n).padStart(2, '0')
 }
 
+/** ある瞬間が、日本時間で何年何月何日かを返す */
 export function toDateString(d: Date): string {
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+  const jst = new Date(d.getTime() + JST_OFFSET_MS)
+  return `${jst.getUTCFullYear()}-${pad(jst.getUTCMonth() + 1)}-${pad(jst.getUTCDate())}`
 }
 
 export function dateOf(iso: string): string {
