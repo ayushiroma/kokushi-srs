@@ -4,7 +4,7 @@ import type { ReviewEntry } from '../core/types'
 
 // 先頭がドットのフォルダ（旧 `.kokushi`）は Obsidian Sync の同期対象外になり、
 // PCとスマホで学習履歴が分かれてしまう。通常フォルダに置く。
-const LOG_DIR = '国試対策/_logs'
+const LOG_DIR = '国試対策/_記録'
 
 export class LogStore {
   constructor(private readonly app: App) {}
