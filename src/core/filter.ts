@@ -11,7 +11,9 @@ export interface Filter {
 export function parseFilter(source: string): Filter {
   const filter: Filter = { limit: 50 }
   for (const line of source.split('\n')) {
-    const idx = line.indexOf(':')
+    // 全角コロン「：」も受け付ける。この画面は日本語入力しながら手で書き換えるため、
+    // 半角だけにすると「打ち間違えたのに何も起きない」という気づけない失敗になる。
+    const idx = line.search(/[:：]/)
     if (idx < 0) continue
     const key = line.slice(0, idx).trim()
     const value = line.slice(idx + 1).trim()

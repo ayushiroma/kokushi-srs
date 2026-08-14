@@ -34,6 +34,18 @@ describe('parseFilter', () => {
     expect(parseFilter('field:').field).toBeUndefined()
   })
 
+  it('全角コロンでも読める', () => {
+    const f = parseFilter('field：成人看護学\nlimit：20')
+    expect(f.field).toBe('成人看護学')
+    expect(f.limit).toBe(20)
+  })
+
+  it('半角と全角が混ざっていても読める', () => {
+    const f = parseFilter('field: 母性看護学\nstatus：苦手')
+    expect(f.field).toBe('母性看護学')
+    expect(f.status).toBe('苦手')
+  })
+
   it('空文字列なら既定値だけ', () => {
     expect(parseFilter('')).toEqual({ limit: 50 })
   })
