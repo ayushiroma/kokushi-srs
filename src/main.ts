@@ -5,6 +5,7 @@ import { registerListBlock } from './obsidian/listBlock'
 import { LogStore } from './obsidian/logStore'
 import { indexQuestions } from './obsidian/questionIndex'
 import { registerTodayBlock } from './obsidian/todayBlock'
+import { registerWeaknessBlock } from './obsidian/weaknessBlock'
 
 export default class KokushiPlugin extends Plugin {
   logStore!: LogStore
@@ -14,6 +15,7 @@ export default class KokushiPlugin extends Plugin {
     registerAnswerBlock(this)
     registerTodayBlock(this)
     registerListBlock(this)
+    registerWeaknessBlock(this)
 
     this.addCommand({
       id: 'kokushi-debug-index',
