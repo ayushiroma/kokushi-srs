@@ -25,6 +25,8 @@ export interface Filter {
   session?: string
   status?: string
   tag?: string
+  /** `必修` または `一般`。必修は8割が絶対条件なので、ここだけ集中して解けるようにする */
+  type?: string
   limit: number
   /** 認識できなかったキー（打ち間違いを画面で知らせるため） */
   unknownKeys: string[]
@@ -45,6 +47,7 @@ export function parseFilter(source: string): Filter {
     else if (key === 'session') filter.session = value
     else if (key === 'status') filter.status = value
     else if (key === 'tag') filter.tag = value
+    else if (key === 'type') filter.type = value
     else if (key === 'round') {
       const n = Number(toHalfWidthDigits(value))
       if (!Number.isNaN(n)) filter.round = n

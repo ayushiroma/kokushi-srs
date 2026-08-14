@@ -1,4 +1,5 @@
 import { Notice, type App } from 'obsidian'
+import { DEFAULT_HISSHU, type HisshuRanges } from '../core/hisshu'
 
 const CONFIG_PATH = '国試対策/_config.json'
 
@@ -7,6 +8,7 @@ export interface KokushiConfig {
   scope: string[]
   years: number
   showPacing: boolean
+  hisshu: HisshuRanges
 }
 
 export const DEFAULT_CONFIG: KokushiConfig = {
@@ -14,6 +16,7 @@ export const DEFAULT_CONFIG: KokushiConfig = {
   scope: ['nurse', 'phn'],
   years: 5,
   showPacing: true,
+  hisshu: DEFAULT_HISSHU,
 }
 
 /** YYYY-MM-DD の形式かどうか（ゼロ埋めしていない 2027-2-12 は文字列比較を壊すので弾く） */
@@ -26,6 +29,25 @@ function isValidExamDates(value: unknown): value is Record<string, string> {
   return entries.every(([, v]) => typeof v === 'string' && DATE_PATTERN.test(v))
 }
 
+/**
+ * 必修の範囲が `{ nurse: { am: [1, 25] } }` の形になっているか確かめる。
+ * 壊れた範囲を通すと必修が0件になったり全問が必修になったりして、
+ * 「8割取れているか」の判定が黙って嘘をつく。
+ */
+function isValidHisshu(value: unknown): value is HisshuRanges {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return false
+  return Object.values(value as Record<string, unknown>).every((sessions) => {
+    if (typeof sessions !== 'object' || sessions === null || Array.isArray(sessions)) return false
+    return Object.values(sessions as Record<string, unknown>).every(
+      (range) =>
+        Array.isArray(range) &&
+        range.length === 2 &&
+        range.every((n) => typeof n === 'number' && Number.isInteger(n) && n > 0) &&
+        range[0] <= range[1],
+    )
+  })
+}
+
 export async function loadConfig(app: App): Promise<KokushiConfig> {
   try {
     const adapter = app.vault.adapter
@@ -36,11 +58,16 @@ export async function loadConfig(app: App): Promise<KokushiConfig> {
       new Notice('国試対策：_config.json の examDates が不正です。既定の試験日を使います')
       console.error('kokushi-srs: examDates が不正です', raw.examDates)
     }
+    if (raw.hisshu !== undefined && !isValidHisshu(raw.hisshu)) {
+      new Notice('国試対策：_config.json の hisshu が不正です。既定の必修範囲を使います')
+      console.error('kokushi-srs: hisshu が不正です', raw.hisshu)
+    }
     return {
       examDates: isValidExamDates(raw.examDates) ? raw.examDates : DEFAULT_CONFIG.examDates,
       scope: Array.isArray(raw.scope) ? raw.scope : DEFAULT_CONFIG.scope,
       years: typeof raw.years === 'number' ? raw.years : DEFAULT_CONFIG.years,
       showPacing: typeof raw.showPacing === 'boolean' ? raw.showPacing : DEFAULT_CONFIG.showPacing,
+      hisshu: isValidHisshu(raw.hisshu) ? raw.hisshu : DEFAULT_CONFIG.hisshu,
     }
   } catch (error) {
     new Notice('国試対策：_config.json を読めませんでした。既定値を使います')

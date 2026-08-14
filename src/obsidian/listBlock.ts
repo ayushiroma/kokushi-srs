@@ -1,5 +1,6 @@
 import { toDateString } from '../core/date'
 import { parseFilter } from '../core/filter'
+import { isHisshu } from '../core/hisshu'
 import { isMastered } from '../core/srs'
 import { buildStates } from '../core/state'
 import { earliestExamDate, loadConfig } from './config'
@@ -21,6 +22,11 @@ export function registerListBlock(plugin: KokushiPlugin): void {
         if (filter.round !== undefined && q.round !== filter.round) return false
         if (filter.session !== undefined && q.session !== filter.session) return false
         if (filter.tag !== undefined && !q.tags.includes(filter.tag)) return false
+        if (filter.type !== undefined) {
+          const hisshu = isHisshu(q, config.hisshu)
+          if (filter.type === '必修' && !hisshu) return false
+          if (filter.type === '一般' && hisshu) return false
+        }
         if (filter.status !== undefined) {
           const state = states.get(q.id)
           if (filter.status === '未解答' && state !== undefined) return false
