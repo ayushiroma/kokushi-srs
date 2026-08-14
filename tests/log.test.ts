@@ -48,6 +48,26 @@ describe('parseLog', () => {
   it('空文字列なら空配列', () => {
     expect(parseLog('')).toEqual([])
   })
+
+  it('存在しない日付の行を捨てる', () => {
+    const text = '{"id":"a","at":"2026-02-30T10:00:00+09:00","result":"ok"}'
+    expect(parseLog(text)).toHaveLength(0)
+  })
+
+  it('ISO8601でない日時形式の行を捨てる', () => {
+    for (const at of ['2026/08/14', 'Aug 14 2026', '2026-08-14', '2026-08-14T10:00:00']) {
+      const text = `{"id":"a","at":"${at}","result":"ok"}`
+      expect(parseLog(text), at).toHaveLength(0)
+    }
+  })
+
+  it('Z表記と時差表記のどちらも受け入れる', () => {
+    const text = [
+      '{"id":"a","at":"2026-08-14T01:00:00.000Z","result":"ok"}',
+      '{"id":"b","at":"2026-08-14T10:00:00+09:00","result":"ok"}',
+    ].join('\n')
+    expect(parseLog(text)).toHaveLength(2)
+  })
 })
 
 describe('mergeLogs', () => {
@@ -59,5 +79,18 @@ describe('mergeLogs', () => {
 
   it('空の配列を渡しても壊れない', () => {
     expect(mergeLogs([])).toEqual([])
+  })
+
+  it('Z表記と時差表記が混在しても実時刻の順に並ぶ', () => {
+    // 01:00Z は 10:00+09:00 と同じ瞬間。09:30+09:00 (=00:30Z) のほうが先。
+    const pc = parseLog('{"id":"later","at":"2026-08-14T01:00:00.000Z","result":"ok"}')
+    const mobile = parseLog('{"id":"earlier","at":"2026-08-14T09:30:00+09:00","result":"ok"}')
+    expect(mergeLogs([pc, mobile]).map((e) => e.id)).toEqual(['earlier', 'later'])
+  })
+
+  it('同時刻なら元の並び順を保つ', () => {
+    const first = parseLog('{"id":"first","at":"2026-08-14T10:00:00+09:00","result":"ok"}')
+    const second = parseLog('{"id":"second","at":"2026-08-14T10:00:00+09:00","result":"ok"}')
+    expect(mergeLogs([first, second]).map((e) => e.id)).toEqual(['first', 'second'])
   })
 })
