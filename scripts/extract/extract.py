@@ -1,0 +1,347 @@
+"""厚労省の公開PDFから国試問題を機械的に抽出する。
+
+**このスクリプトはAIに問題文を書かせない。** PDFのテキストをそのまま転記するだけ。
+偽の国試問題が混入するとシステムの目的そのものが壊れるため、
+「それらしく整える」処理は入れない（空白の正規化・行の連結・段落の復元のみ）。
+
+使い方:
+    py -3 extract.py --probe <問題pdf> [--show 3,4,31]
+    py -3 extract.py --answers <正答pdf>
+"""
+from __future__ import annotations
+
+import argparse
+import re
+import unicodedata
+from dataclasses import dataclass, field as dc_field
+from pathlib import Path
+
+import pymupdf
+
+# ページ先頭の版面ヘッダー（例: DKIX-05-前H-13）。回によって記号が変わるので緩く取る
+HEADER_RE = re.compile(r"^[A-Z]{2,8}-\d{2}-[^\s]*-\d+$")
+CHOICE_RE = re.compile(r"^\s*([1-5])．\s*(.*)$")
+# 状況設定問題の共通文の始まり（例: 次の文を読み112～114 の問いに答えよ。）
+SHARED_RE = re.compile(r"^次の文を読み.*問いに答えよ。?\s*$")
+# 本文ページの目印。ヘッダーの次が全角スペースだけの行、その次がノンブル。
+# 表紙・注意事項・解答用紙見本のページにはこの並びが無いので、これで本文だけを選べる
+NOMBRE_MARK = "　" * 4
+
+# 図表を参照する問題はテキストだけでは解けないので除外する。
+# 「意図」「企図」を弾き、「示す」までの距離を句点の手前までに限定して誤検出を防ぐ
+# （例：選択肢に「磁気共鳴画像〈MRI〉」がある問題は図表問題ではない）。
+# 「別冊No.◯」は必ず図表なので単独で除外条件にする。
+FIGURE_RE = re.compile(
+    r"(?<![意企構壮])図[^。]{0,15}(示す|参照)"
+    r"|写真[^。]{0,15}(示す|参照)"
+    r"|別冊"
+)
+CALC_RE = re.compile(r"解答[:：]")
+COMBINATION_RE = re.compile(r"組合せ|組み合わせ")
+
+
+@dataclass
+class Question:
+    number: int
+    text: str = ""
+    choices: list[str] = dc_field(default_factory=list)
+    shared_context: str | None = None
+    excluded: str | None = None
+    warnings: list[str] = dc_field(default_factory=list)
+    raw_lines: list[str] = dc_field(default_factory=list)
+
+
+def is_cjk(ch: str) -> bool:
+    if ch == "":
+        return False
+    return unicodedata.name(ch, "").startswith(("CJK", "HIRAGANA", "KATAKANA"))
+
+
+# 和文とみなす文字（かな・漢字・全角記号）。四分アキを詰める判定に使う
+JP = r"぀-ヿ㐀-䶿一-鿿、-〿＀-￯"
+QUARTER_AFTER = re.compile(rf"(?<=[0-9A-Za-z]) (?=[{JP}])")
+QUARTER_BEFORE = re.compile(rf"(?<=[{JP}]) (?=[0-9A-Za-z])")
+# 「まるごと欧文の行」＝病名などの英語併記の行。和文の折り返しと区別するために使う
+LATIN_LINE = re.compile(r"[A-Za-z][A-Za-z0-9 ,.\-'’()/&]*")
+
+
+def normalize(text: str) -> str:
+    """1行分の空白を整える。文字そのものは変えない。
+
+    国試PDFは日本語組版の慣習で2種類の余分な空白を持つ:
+      ① 2文字の熟語の字間（「圧　迫」）→ 詰める
+      ② 和文と英数字の境目の四分アキ（「3 週間」「A さん」）→ 詰める
+    ②を残すと「3 週間」「20 歳」のようになり、検索でも読みでも本文と食い違う。
+    **行をまたぐ連結で入れた空白は別扱い**（英語併記の `diabetes mellitus 糖尿病`
+    はそのまま残す必要があるため、この関数は1行分にだけ適用する）。
+    """
+    out: list[str] = []
+    for i, ch in enumerate(text):
+        if ch != "　":
+            out.append(ch)
+            continue
+        prev = text[i - 1] if i > 0 else ""
+        nxt = text[i + 1] if i + 1 < len(text) else ""
+        if is_cjk(prev) and is_cjk(nxt):
+            continue  # 「圧　迫」→「圧迫」
+        out.append(" ")
+    joined = re.sub(r" {2,}", " ", "".join(out)).strip()
+    joined = QUARTER_AFTER.sub("", joined)
+    return QUARTER_BEFORE.sub("", joined)
+
+
+def join_lines(lines: list[str]) -> str:
+    """PDFの折り返しを連結する。
+
+    各行を先に整えてから連結する。行をまたぐ空白は「直前の行がまるごと欧文」の
+    ときだけ入れる。国試PDFは病名の英語併記を独立した行に組むので
+    （`diabetes mellitus` の次の行が `糖尿病`）そこは空けたい。一方、和文の途中で
+    折り返しただけの `…勤め先のC` ＋ `健康保険組合…` は詰めなければならない。
+    「行末が英数字か」で判定すると後者まで空いてしまうため、行全体で判定する。
+    """
+    result = ""
+    previous = ""
+    for line in lines:
+        piece = normalize(line)
+        if piece == "":
+            continue
+        if result == "":
+            result = previous = piece
+            continue
+        result += (" " if LATIN_LINE.fullmatch(previous) else "") + piece
+        previous = piece
+    return result
+
+
+def join_paragraphs(lines: list[str]) -> str:
+    """全角スペースで始まる行を段落の始まりとみなして復元する。
+
+    状況設定問題は「状況の説明」と「設問」が別段落になっている。詰めてしまうと
+    どこからが問われている内容なのか読み取れなくなる。
+    """
+    paragraphs: list[list[str]] = []
+    for line in lines:
+        if line.strip() == "":
+            continue
+        if line.startswith("　") or not paragraphs:
+            paragraphs.append([line])
+        else:
+            paragraphs[-1].append(line)
+    return "\n\n".join(p for p in (join_lines(par) for par in paragraphs) if p != "")
+
+
+def join_choice(lines: list[str], combination: bool) -> str:
+    """選択肢1つ分を連結する。
+
+    「組合せ」問題は左右2段組で、段の切れ目がPDF上では「末尾の空白2つ」または
+    「空白だけの行」として現れる。詰めると `児童福祉法医療的ケア児が…` になって
+    どこが区切りか分からなくなるため、組合せ問題に限って ── を補う。
+    """
+    if not combination:
+        return join_lines(lines)
+    left: list[str] = []
+    right: list[str] = []
+    split_done = False
+    for line in lines:
+        if not split_done and (line.strip() == "" or re.search(r"\S {2,}$", line)):
+            if line.strip() != "":
+                left.append(line)
+            split_done = True
+            continue
+        (right if split_done else left).append(line)
+    if not split_done or not right:
+        return join_lines(lines)
+    return f"{join_lines(left)} ── {join_lines(right)}"
+
+
+def body_pages(doc: pymupdf.Document) -> list[list[str]]:
+    """問題本文のページだけを、ヘッダーとノンブルを落として返す。"""
+    pages: list[list[str]] = []
+    for page in doc:
+        raw = page.get_text().split("\n")
+        if len(raw) < 4:
+            continue
+        if not HEADER_RE.match(raw[0].strip()):
+            continue
+        if raw[1] != NOMBRE_MARK:
+            continue  # 表紙・注意事項・解答用紙見本のページ
+        if not re.fullmatch(r"\d{1,3}", raw[2].strip()):
+            continue
+        pages.append(raw[3:])
+    return pages
+
+
+def parse_questions(doc: pymupdf.Document, total: int) -> list[Question]:
+    """問題番号の連番を頼りに切り分ける。
+
+    「次に来るのは必ず N 番」と決め打つことで、選択肢番号や本文中の数字との
+    取り違えを防ぐ。番号が飛んだら取りこぼしとして報告する。
+    """
+    lines = [line for page in body_pages(doc) for line in page]
+    questions: list[Question] = []
+    expected = 1
+    current: Question | None = None
+    shared: str | None = None
+    shared_buffer: list[str] | None = None
+
+    for line in lines:
+        if SHARED_RE.match(line.strip()):
+            shared_buffer = []
+            shared = None
+            continue
+
+        is_head = re.match(rf"^\s*{expected}(?:\s|$)", line) and not CHOICE_RE.match(line)
+        if is_head and expected <= total:
+            if shared_buffer is not None:
+                shared = join_paragraphs(shared_buffer)
+                shared_buffer = None
+            if current is not None:
+                questions.append(current)
+            rest = line.strip()[len(str(expected)):]
+            current = Question(number=expected, shared_context=shared)
+            if rest.strip():
+                current.raw_lines.append(rest)
+            expected += 1
+            continue
+
+        if shared_buffer is not None:
+            shared_buffer.append(line)
+        elif current is not None:
+            current.raw_lines.append(line)
+
+    if current is not None:
+        questions.append(current)
+
+    for q in questions:
+        split_choices(q)
+    return questions
+
+
+def split_choices(q: Question) -> None:
+    stem: list[str] = []
+    groups: list[list[str]] = []
+    for line in q.raw_lines:
+        m = CHOICE_RE.match(line)
+        if m and int(m.group(1)) == len(groups) + 1:
+            groups.append([m.group(2)])
+        elif groups:
+            groups[-1].append(line)
+        else:
+            stem.append(line)
+    q.text = join_paragraphs(stem)
+    combination = bool(COMBINATION_RE.search(q.text))
+    q.choices = [join_choice(g, combination) for g in groups]
+
+
+# 正答値表の設問番号は回によって2形式ある。A001/B001（新しい回）と AM1/PM1（古い回）
+ANSWER_KEY_RE = re.compile(r"^(?:([AB])(\d{3})|(AM|PM)(\d{1,3}))$")
+
+
+def normalize_answer_key(token: str) -> str | None:
+    """`A001` も `AM1` も `am-1` の形に揃える。"""
+    m = ANSWER_KEY_RE.match(token)
+    if not m:
+        return None
+    if m.group(1):
+        session = "am" if m.group(1) == "A" else "pm"
+        return f"{session}-{int(m.group(2))}"
+    return f"{m.group(3).lower()}-{int(m.group(4))}"
+
+
+def parse_answers(pdf: Path) -> dict[str, list[str]]:
+    """正答値表を読む。値が空なら削除問題。
+
+    表には「正答１/正答２/正答３」の列がある。1つの設問に複数の値が並ぶのは
+    「どちらを選んでも正解」という意味で、「2つ選べ」の複数選択とは別物。
+    複数選択は `14` のように1つの数値にまとまって入る。区別できるよう、
+    値はトークンの列のまま返す。
+    """
+    doc = pymupdf.open(pdf)
+    tokens: list[str] = []
+    for page in doc:
+        tokens.extend(t.strip() for t in page.get_text().split("\n") if t.strip())
+
+    answers: dict[str, list[str]] = {}
+    key: str | None = None
+    for token in tokens:
+        normalized = normalize_answer_key(token)
+        if normalized is not None:
+            key = normalized
+            answers.setdefault(key, [])
+        elif key is not None and re.fullmatch(r"\d{1,3}", token):
+            answers[key].append(token)
+    return answers
+
+
+def classify(q: Question) -> str | None:
+    """採用しない理由を返す。採用するなら None。"""
+    whole = f"{q.shared_context or ''} {q.text} {' '.join(q.choices)}"
+    if CALC_RE.search(whole):
+        return "計算問題"
+    if FIGURE_RE.search(whole):
+        return "図表参照"
+    if len(q.choices) < 4:
+        return f"選択肢{len(q.choices)}個"
+    return None
+
+
+def analyze(doc: pymupdf.Document, total: int) -> list[Question]:
+    questions = parse_questions(doc, total)
+    for q in questions:
+        q.excluded = classify(q)
+        if q.excluded is None and len(q.choices) > 5:
+            q.warnings.append(f"選択肢が{len(q.choices)}個ある")
+        if q.excluded is None and len(q.text) < 8:
+            q.warnings.append("問題文が極端に短い")
+    return questions
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--probe", type=Path)
+    parser.add_argument("--answers", type=Path)
+    parser.add_argument("--total", type=int, default=120)
+    parser.add_argument("--show", type=str, default="")
+    args = parser.parse_args()
+
+    if args.answers:
+        answers = parse_answers(args.answers)
+        blanks = [k for k, v in answers.items() if not v]
+        alts = {k: v for k, v in answers.items() if len(v) > 1}
+        print(f"正答 {len(answers)} 件 / 空欄（削除問題） {len(blanks)} 件: {blanks}")
+        print(f"複数の値が入っている（どちらでも正解） {len(alts)} 件: {alts}")
+        return
+
+    if not args.probe:
+        parser.error("--probe か --answers を指定してください")
+
+    doc = pymupdf.open(args.probe)
+    questions = analyze(doc, args.total)
+    print(f"抽出 {len(questions)} 件（期待 {args.total} 件）")
+    missing = sorted(set(range(1, args.total + 1)) - {q.number for q in questions})
+    if missing:
+        print(f"⚠️ 取りこぼし: {missing}")
+    reasons: dict[str, list[int]] = {}
+    for q in questions:
+        if q.excluded:
+            reasons.setdefault(q.excluded, []).append(q.number)
+    for reason, nums in sorted(reasons.items()):
+        print(f"  除外 {reason}: {len(nums)}件 {nums}")
+    warned = [(q.number, w) for q in questions for w in q.warnings]
+    if warned:
+        print(f"  ⚠️ 要確認: {warned}")
+    print(f"→ 採用 {sum(1 for q in questions if not q.excluded)} 件")
+
+    wanted = {int(n) for n in args.show.split(",") if n.strip()}
+    for q in questions:
+        if q.number in wanted:
+            print(f"\n===== 問{q.number} 除外={q.excluded} =====")
+            if q.shared_context:
+                print(f"[共通文]\n{q.shared_context}\n")
+            print(q.text)
+            for i, c in enumerate(q.choices, 1):
+                print(f"  {i}. {c}")
+
+
+if __name__ == "__main__":
+    main()
