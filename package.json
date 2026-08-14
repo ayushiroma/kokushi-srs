@@ -6,7 +6,8 @@
   "scripts": {
     "build": "node esbuild.config.mjs",
     "deploy": "npm run build && node scripts/deploy.mjs",
-    "test": "vitest run",
+    "test": "tsc --noEmit && vitest run",
+    "typecheck": "tsc --noEmit",
     "test:watch": "vitest"
   },
   "devDependencies": {
