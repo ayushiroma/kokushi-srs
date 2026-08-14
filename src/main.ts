@@ -1,6 +1,8 @@
 import { Notice, Plugin } from 'obsidian'
 import { registerAnswerBlock } from './obsidian/answerBlock'
+import { earliestExamDate, loadConfig } from './obsidian/config'
 import { LogStore } from './obsidian/logStore'
+import { indexQuestions } from './obsidian/questionIndex'
 
 export default class KokushiPlugin extends Plugin {
   logStore!: LogStore
@@ -10,11 +12,12 @@ export default class KokushiPlugin extends Plugin {
     registerAnswerBlock(this)
 
     this.addCommand({
-      id: 'kokushi-debug-count',
-      name: '【デバッグ】記録件数を表示する',
+      id: 'kokushi-debug-index',
+      name: '【デバッグ】問題数と試験日を表示する',
       callback: async () => {
-        const all = await this.logStore.readAll()
-        new Notice(`現在 ${all.length} 件`)
+        const config = await loadConfig(this.app)
+        const questions = indexQuestions(this.app)
+        new Notice(`問題 ${questions.length} 件 / 基準試験日 ${earliestExamDate(config)} / 先頭 ${questions[0]?.id ?? 'なし'}`)
       },
     })
   }
