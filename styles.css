@@ -1,0 +1,31 @@
+.kokushi-buttons {
+  display: flex;
+  gap: 8px;
+  margin: 12px 0;
+  flex-wrap: wrap;
+}
+
+.kokushi-btn {
+  flex: 1 1 auto;
+  min-width: 96px;
+  min-height: 44px;
+  font-size: 1rem;
+  cursor: pointer;
+}
+
+.kokushi-reason {
+  width: 100%;
+  margin-top: 8px;
+  min-height: 40px;
+  font-size: 1rem;
+}
+
+.kokushi-feedback {
+  margin-top: 8px;
+  color: var(--text-muted);
+}
+
+.kokushi-section-title {
+  font-weight: 600;
+  margin-top: 16px;
+}

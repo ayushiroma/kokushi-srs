@@ -1,0 +1,9 @@
+{
+  "id": "kokushi-srs",
+  "name": "国試対策",
+  "version": "0.1.0",
+  "minAppVersion": "1.5.0",
+  "description": "看護師・保健師国家試験の問題演習と間隔反復復習",
+  "author": "ayu",
+  "isDesktopOnly": false
+}

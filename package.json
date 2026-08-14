@@ -1,0 +1,20 @@
+{
+  "name": "kokushi-srs",
+  "version": "0.1.0",
+  "description": "看護師・保健師国家試験の学習管理プラグイン",
+  "type": "module",
+  "scripts": {
+    "build": "node esbuild.config.mjs",
+    "deploy": "npm run build && node scripts/deploy.mjs",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "builtin-modules": "^4.0.0",
+    "esbuild": "^0.25.0",
+    "obsidian": "^1.7.2",
+    "typescript": "^5.6.0",
+    "vitest": "^2.1.0"
+  }
+}
