@@ -31,6 +31,10 @@ export function registerAnswerBlock(plugin: KokushiPlugin): void {
     const record = async (result: Result, reason?: string): Promise<boolean> => {
       if (busy) return false
       busy = true
+
+      // 記録そのものの成否と、記録後の表示の成否は分けて扱う。
+      // まとめて catch すると「記録は成功したのに失敗と表示」→ 再試行で二重記録、という
+      // 気づけないデータ破壊が起きる。
       try {
         await plugin.logStore.append({
           id,
@@ -38,20 +42,27 @@ export function registerAnswerBlock(plugin: KokushiPlugin): void {
           result,
           ...(reason !== undefined && reason !== '' ? { reason } : {}),
         })
-        const states = buildStates(await plugin.logStore.readAll())
-        const next = states.get(id)?.nextDue ?? '不明'
-        row.empty()
-        feedback.setText(`記録しました。次回は ${next}`)
-        new Notice(`記録しました（次回 ${next}）`)
-        return true
       } catch (error) {
-        // 記録が失われたことにユーザーが気づけないのが最悪。必ず画面に出して再試行できるようにする。
         busy = false
         feedback.setText('⚠️ 記録に失敗しました。もう一度押してください')
         new Notice('国試対策：記録に失敗しました')
         console.error('kokushi-srs: 記録に失敗しました', error)
         return false
       }
+
+      // ここから先は記録済み。表示に失敗しても「成功」として扱う（再試行させない）。
+      row.empty()
+      try {
+        const states = buildStates(await plugin.logStore.readAll())
+        const next = states.get(id)?.nextDue ?? '不明'
+        feedback.setText(`記録しました。次回は ${next}`)
+        new Notice(`記録しました（次回 ${next}）`)
+      } catch (error) {
+        feedback.setText('記録しました（次回の復習日は取得できませんでした）')
+        new Notice('記録しました')
+        console.error('kokushi-srs: 次回復習日の計算に失敗しました', error)
+      }
+      return true
     }
 
     for (const { result, label } of LABELS) {
@@ -68,6 +79,8 @@ export function registerAnswerBlock(plugin: KokushiPlugin): void {
         input.focus()
         input.onkeydown = (ev: KeyboardEvent) => {
           if (ev.key !== 'Enter') return
+          // 日本語入力の変換確定Enterを拾わない（漢字を確定した瞬間に記録が走ってしまう）
+          if (ev.isComposing) return
           if (busy) return
           input.disabled = true
           void record('wrong', input.value.trim()).then((ok) => {

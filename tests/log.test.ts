@@ -93,4 +93,17 @@ describe('mergeLogs', () => {
     const second = parseLog('{"id":"second","at":"2026-08-14T10:00:00+09:00","result":"ok"}')
     expect(mergeLogs([first, second]).map((e) => e.id)).toEqual(['first', 'second'])
   })
+
+  it('同一内容のログを1件に落とす（同期の競合コピー対策）', () => {
+    const line = '{"id":"a","at":"2026-08-14T10:00:00+09:00","result":"ok"}'
+    const original = parseLog(line)
+    const duplicate = parseLog(line)
+    expect(mergeLogs([original, duplicate])).toHaveLength(1)
+  })
+
+  it('同じ問題でも時刻が違えば別件として残す', () => {
+    const first = parseLog('{"id":"a","at":"2026-08-14T10:00:00+09:00","result":"ok"}')
+    const second = parseLog('{"id":"a","at":"2026-08-14T10:00:01+09:00","result":"ok"}')
+    expect(mergeLogs([first, second])).toHaveLength(2)
+  })
 })

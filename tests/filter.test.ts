@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { parseFilter } from '../src/core/filter'
+import { parseFilter, parseIntField } from '../src/core/filter'
 
 describe('parseFilter', () => {
   it('キーと値を読む', () => {
@@ -47,6 +47,36 @@ describe('parseFilter', () => {
   })
 
   it('空文字列なら既定値だけ', () => {
-    expect(parseFilter('')).toEqual({ limit: 50 })
+    expect(parseFilter('')).toEqual({ limit: 50, unknownKeys: [] })
+  })
+
+  it('全角数字を半角として読む', () => {
+    const f = parseFilter('round：１１５\nlimit：２０')
+    expect(f.round).toBe(115)
+    expect(f.limit).toBe(20)
+  })
+
+  it('認識できないキーを記録する', () => {
+    const f = parseFilter('field: 成人看護学\ntags: 睡眠\nunknown: x')
+    expect(f.field).toBe('成人看護学')
+    expect(f.unknownKeys).toEqual(['tags', 'unknown'])
+  })
+})
+
+describe('parseIntField', () => {
+  it('半角コロンと半角数字を読む', () => {
+    expect(parseIntField('topics: 3', 'topics', 5)).toBe(3)
+  })
+
+  it('全角コロンと全角数字を読む', () => {
+    expect(parseIntField('topics：３', 'topics', 5)).toBe(3)
+  })
+
+  it('キーが無ければ既定値', () => {
+    expect(parseIntField('other: 3', 'topics', 5)).toBe(5)
+  })
+
+  it('0以下なら既定値', () => {
+    expect(parseIntField('topics: 0', 'topics', 5)).toBe(5)
   })
 })

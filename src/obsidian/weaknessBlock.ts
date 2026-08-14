@@ -1,4 +1,5 @@
 import { Notice } from 'obsidian'
+import { parseIntField } from '../core/filter'
 import { aggregateWeakness, type WeaknessRow } from '../core/weakness'
 import { buildStates } from '../core/state'
 import { earliestExamDate, loadConfig } from './config'
@@ -40,36 +41,41 @@ function renderRows(
 
 export function registerWeaknessBlock(plugin: KokushiPlugin): void {
   plugin.registerMarkdownCodeBlockProcessor('kokushi-weakness', async (source, el) => {
-    el.empty()
-    const match = /(?:^|\n)\s*topics:\s*(\d+)/.exec(source)
-    const topicLimit = match ? Number(match[1]) : DEFAULT_TOPIC_LIMIT
+    try {
+      el.empty()
+      const topicLimit = parseIntField(source, 'topics', DEFAULT_TOPIC_LIMIT)
 
-    const examDate = earliestExamDate(await loadConfig(plugin.app))
-    const states = buildStates(await plugin.logStore.readAll())
-    const questions = indexQuestions(plugin.app)
+      const examDate = earliestExamDate(await loadConfig(plugin.app))
+      const states = buildStates(await plugin.logStore.readAll())
+      const questions = indexQuestions(plugin.app)
 
-    if (questions.length === 0) {
-      el.createEl('p', { text: '問題ノートがありません' })
-      return
+      if (questions.length === 0) {
+        el.createEl('p', { text: '問題ノートがありません' })
+        return
+      }
+
+      el.createEl('p', { text: '分野別（全体像）', cls: 'kokushi-section-title' })
+      renderRows(
+        el,
+        aggregateWeakness(questions.map((q) => ({ key: q.field, id: q.id })), states, examDate),
+        plugin,
+        'field',
+      )
+
+      el.createEl('p', {
+        text: `10分で潰すならここ（トピック別ワースト${topicLimit}）`,
+        cls: 'kokushi-section-title',
+      })
+      const topicRows = aggregateWeakness(
+        questions.flatMap((q) => q.tags.map((tag) => ({ key: tag, id: q.id }))),
+        states,
+        examDate,
+      ).filter((row) => row.weak > 0)
+      renderRows(el, topicRows.slice(0, topicLimit), plugin, 'tag')
+    } catch (error) {
+      el.empty()
+      el.createEl('p', { text: '⚠️ 表示に失敗しました。開発者ツールのコンソールを確認してください' })
+      console.error('kokushi-srs: 表示に失敗しました', error)
     }
-
-    el.createEl('p', { text: '分野別（全体像）', cls: 'kokushi-section-title' })
-    renderRows(
-      el,
-      aggregateWeakness(questions.map((q) => ({ key: q.field, id: q.id })), states, examDate),
-      plugin,
-      'field',
-    )
-
-    el.createEl('p', {
-      text: `10分で潰すならここ（トピック別ワースト${topicLimit}）`,
-      cls: 'kokushi-section-title',
-    })
-    const topicRows = aggregateWeakness(
-      questions.flatMap((q) => q.tags.map((tag) => ({ key: tag, id: q.id }))),
-      states,
-      examDate,
-    ).filter((row) => row.weak > 0)
-    renderRows(el, topicRows.slice(0, topicLimit), plugin, 'tag')
   })
 }
