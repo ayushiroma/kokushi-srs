@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { mergeLogs } from '../src/core/log'
 import { CAPACITY_WINDOW_DAYS, MIN_STUDY_DAYS, masteredCountAsOf, masteryPerDay, measuredCapacity } from '../src/core/pace'
 import type { ReviewEntry } from '../src/core/types'
 
@@ -40,6 +41,15 @@ describe('measuredCapacity', () => {
     expect(measuredCapacity(entries)).toBe(10)
   })
 
+  it('平均が割り切れないときは四捨五入する', () => {
+    // 31 / 3 = 10.33... → 10
+    const down = [...day('2026-08-12', 10), ...day('2026-08-13', 10, 10), ...day('2026-08-14', 11, 20)]
+    expect(measuredCapacity(down)).toBe(10)
+    // 32 / 3 = 10.67... → 11
+    const up = [...day('2026-08-12', 10), ...day('2026-08-13', 11, 100), ...day('2026-08-14', 11, 200)]
+    expect(measuredCapacity(up)).toBe(11)
+  })
+
   it('定数が設計どおり', () => {
     expect(MIN_STUDY_DAYS).toBe(3)
     expect(CAPACITY_WINDOW_DAYS).toBe(7)
@@ -71,8 +81,33 @@ describe('masteredCountAsOf', () => {
 })
 
 describe('masteryPerDay', () => {
+  const exam = '2027-02-12'
+
+  /** 6回連続⭕で定着（次回が試験日より後）に到達する1問分のログ */
+  function masteredChain(id: string): ReviewEntry[] {
+    return [
+      { id, at: '2026-11-01T10:00:00+09:00', result: 'ok' },
+      { id, at: '2026-11-02T10:00:00+09:00', result: 'ok' },
+      { id, at: '2026-11-05T10:00:00+09:00', result: 'ok' },
+      { id, at: '2026-11-12T10:00:00+09:00', result: 'ok' },
+      { id, at: '2026-11-26T10:00:00+09:00', result: 'ok' },
+      { id, at: '2026-12-26T10:00:00+09:00', result: 'ok' },
+    ]
+  }
+
   it('期間内に定着が増えていなければnull', () => {
     const entries: ReviewEntry[] = [{ id: 'a', at: '2026-11-01T10:00:00+09:00', result: 'ok' }]
-    expect(masteryPerDay(entries, '2027-02-12', '2026-11-10')).toBeNull()
+    expect(masteryPerDay(entries, exam, '2026-11-10')).toBeNull()
+  })
+
+  it('期間内に定着した数を日数で割った値を返す', () => {
+    // 2026-12-12 時点では未定着（nextDue が 2026-12-26 で試験日より前）、
+    // 2026-12-26 の⭕で nextDue が 2027-02-24 になり定着に到達する
+    expect(masteryPerDay(masteredChain('a'), exam, '2026-12-26')).toBeCloseTo(1 / 14)
+  })
+
+  it('複数問が定着すればその分だけ増える', () => {
+    const entries = mergeLogs([masteredChain('a'), masteredChain('b')])
+    expect(masteryPerDay(entries, exam, '2026-12-26')).toBeCloseTo(2 / 14)
   })
 })
