@@ -1,3 +1,4 @@
+import { Notice } from 'obsidian'
 import { toDateString } from '../core/date'
 import { parseFilter } from '../core/filter'
 import { isHisshu } from '../core/hisshu'
@@ -5,6 +6,7 @@ import { isMastered } from '../core/srs'
 import { buildStates } from '../core/state'
 import { earliestExamDate, loadConfig } from './config'
 import { indexQuestions, type QuestionMeta } from './questionIndex'
+import { renderSession } from './sessionView'
 import type KokushiPlugin from '../main'
 
 export async function resolveFilteredQuestions(plugin: KokushiPlugin, source: string): Promise<QuestionMeta[]> {
@@ -38,45 +40,64 @@ export async function resolveFilteredQuestions(plugin: KokushiPlugin, source: st
 
 export function registerListBlock(plugin: KokushiPlugin): void {
   plugin.registerMarkdownCodeBlockProcessor('kokushi-list', async (source, el) => {
-    try {
-      el.empty()
-      const filter = parseFilter(source)
-      const matched = await resolveFilteredQuestions(plugin, source)
+    const renderList = async (): Promise<void> => {
+      try {
+        el.empty()
+        const filter = parseFilter(source)
+        const matched = await resolveFilteredQuestions(plugin, source)
 
-      const shown = matched.slice(0, filter.limit)
-      const conditions = Object.entries(filter)
-        .filter(([key]) => key !== 'limit' && key !== 'unknownKeys')
-        .map(([key, value]) => `${key}=${String(value)}`)
-        .join(' ｜ ')
+        const shown = matched.slice(0, filter.limit)
+        const conditions = Object.entries(filter)
+          .filter(([key]) => key !== 'limit' && key !== 'unknownKeys')
+          .map(([key, value]) => `${key}=${String(value)}`)
+          .join(' ｜ ')
 
-      el.createEl('p', {
-        text: `${conditions === '' ? '条件なし' : conditions}　該当 ${matched.length}問 中 ${shown.length}問を表示（${toDateString(new Date())} 時点）`,
-      })
-
-      if (filter.unknownKeys.length > 0) {
         el.createEl('p', {
-          text: `⚠️ 認識できない条件があります: ${filter.unknownKeys.join(' / ')}`,
+          text: `${conditions === '' ? '条件なし' : conditions}　該当 ${matched.length}問 中 ${shown.length}問を表示（${toDateString(new Date())} 時点）`,
         })
-      }
 
-      if (shown.length === 0) {
-        el.createEl('p', { text: '該当する問題がありません' })
-        return
-      }
-
-      const ul = el.createEl('ul')
-      for (const meta of shown) {
-        const li = ul.createEl('li')
-        const link = li.createEl('a', { text: `${meta.id}　${meta.field}`, href: '#' })
-        link.onclick = (ev) => {
-          ev.preventDefault()
-          void plugin.app.workspace.openLinkText(meta.path, '', false)
+        if (filter.unknownKeys.length > 0) {
+          el.createEl('p', {
+            text: `⚠️ 認識できない条件があります: ${filter.unknownKeys.join(' / ')}`,
+          })
         }
+
+        if (shown.length === 0) {
+          el.createEl('p', { text: '該当する問題がありません' })
+          return
+        }
+
+        const practiceBtn = el.createEl('button', { text: '連続で解く' })
+        practiceBtn.addEventListener('click', () => {
+          void (async () => {
+            const questions = await resolveFilteredQuestions(plugin, source)
+            if (questions.length === 0) {
+              new Notice('対象の問題がありません')
+              return
+            }
+            el.empty()
+            renderSession(plugin, el, questions, () => {
+              void renderList()
+            })
+          })()
+        })
+
+        const ul = el.createEl('ul')
+        for (const meta of shown) {
+          const li = ul.createEl('li')
+          const link = li.createEl('a', { text: `${meta.id}　${meta.field}`, href: '#' })
+          link.onclick = (ev) => {
+            ev.preventDefault()
+            void plugin.app.workspace.openLinkText(meta.path, '', false)
+          }
+        }
+      } catch (error) {
+        el.empty()
+        el.createEl('p', { text: '⚠️ 表示に失敗しました。開発者ツールのコンソールを確認してください' })
+        console.error('kokushi-srs: 表示に失敗しました', error)
       }
-    } catch (error) {
-      el.empty()
-      el.createEl('p', { text: '⚠️ 表示に失敗しました。開発者ツールのコンソールを確認してください' })
-      console.error('kokushi-srs: 表示に失敗しました', error)
     }
+
+    await renderList()
   })
 }
