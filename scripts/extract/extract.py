@@ -11,6 +11,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import re
 import unicodedata
 from dataclasses import dataclass, field as dc_field
@@ -18,14 +19,59 @@ from pathlib import Path
 
 import pymupdf
 
+MAP_PATH = Path(__file__).with_name("glyphmap.json")
+
+
+def load_map() -> dict[str, dict[str, str]]:
+    if not MAP_PATH.exists():
+        return {}
+    return json.loads(MAP_PATH.read_text(encoding="utf-8"))
+
+
+def repair_for(pdf_name: str) -> dict[str, str] | None:
+    """その回の「化けた文字 → 本来の文字」の対応表。無ければ None。"""
+    return load_map().get(Path(pdf_name).stem)
+
+
+def repair_chars(text: str, mapping: dict[str, str] | None) -> str:
+    """対応表に従って文字を戻す。**表に無い文字は勝手に埋めず、そのまま残す。**
+
+    残った化け文字は generate.py が検知して、その回の生成を止める。
+
+    ⚠️ **1行分ずつ渡すこと。** 化けた文字コードには `U+000A`（改行と同じ値）や
+    `U+000D` が含まれる回がある。複数行を繋いだ文字列に当てると、行の区切りまで
+    数字に変換されてページ全体が1行に潰れる。
+    """
+    if not mapping:
+        return text
+    return "".join(mapping.get(f"{ord(ch):04X}", ch) for ch in text)
+
+
+def repair_brackets(text: str, mapping: dict[str, str] | None) -> str:
+    """ラテン文字が 〈〉 の代役になっている場合の対応。行を繋いだ後に当てる。"""
+    if mapping:
+        brackets = mapping.get("_brackets")
+    else:
+        brackets = None
+    if isinstance(brackets, dict):
+        # 〈〉 の代役がラテン文字で、文字単体では本物と区別できない場合
+        # （`Kaup?カウプC指数` の C は括弧、`COPD` の C は本物）。
+        # 閉じ括弧の直後がラテン文字なら英単語の一部なので対にしない。
+        # 中身に改行を許すのは `法律〈障害者総合支援\n法〉` のように行をまたぐため。
+        # 60文字なのは `DOTS〈Directly Observed Treatment,Short-course〉` に合わせたもの。
+        o, c = re.escape(brackets["open"]), re.escape(brackets["close"])
+        return re.sub(rf"{o}([^{o}]{{1,60}}?){c}(?![A-Za-z])", r"〈\1〉", text)
+    return text
+
 # ページ先頭の版面ヘッダー（例: DKIX-05-前H-13）。回によって記号が変わるので緩く取る
 HEADER_RE = re.compile(r"^[A-Z]{2,8}-\d{2}-[^\s]*-\d+$")
 CHOICE_RE = re.compile(r"^\s*([1-5])．\s*(.*)$")
 # 状況設定問題の共通文の始まり（例: 次の文を読み112～114 の問いに答えよ。）
 SHARED_RE = re.compile(r"^次の文を読み.*問いに答えよ。?\s*$")
-# 本文ページの目印。ヘッダーの次が全角スペースだけの行、その次がノンブル。
-# 表紙・注意事項・解答用紙見本のページにはこの並びが無いので、これで本文だけを選べる
-NOMBRE_MARK = "　" * 4
+# 表紙・注意事項・解答用紙見本のページの目印。
+# これらのページには設問例（201〜204番）とマークシートの見本が載っていて、
+# 本文と間違えると見本の数字を問題番号と誤認して全体が崩れる
+FRONT_MATTER_RE = re.compile(r"注\s*意\s*事\s*項|[（(]例\s*\d|答案用紙|指示があるまで開かない")
 
 # 図表を参照する問題はテキストだけでは解けないので除外する。
 # 「意図」「企図」を弾き、「示す」までの距離を句点の手前までに限定して誤検出を防ぐ
@@ -154,30 +200,81 @@ def join_choice(lines: list[str], combination: bool) -> str:
     return f"{join_lines(left)} ── {join_lines(right)}"
 
 
-def body_pages(doc: pymupdf.Document) -> list[list[str]]:
-    """問題本文のページだけを、ヘッダーとノンブルを落として返す。"""
+def strip_header_and_nombre(lines: list[str]) -> list[str]:
+    """版面ヘッダーと、その直後に来るノンブル（ページ番号）を落とす。
+
+    回によってヘッダーの位置が3種類ある:
+      A（新しい回）  ヘッダー → 全角スペースだけの行 → ノンブル → 本文
+      B（看護師111〜114回） 本文 → ヘッダー → ノンブル（ページ末尾）
+      C（保健師108〜109回） ヘッダー → ノンブル → 本文
+    位置で決め打つと版面が変わるたびに全問取りこぼす。**ヘッダーを見つけたら、
+    その次に現れる「数字だけの行」がノンブル**、という関係だけに頼る。
+
+    ノンブルを残すと問題番号と衝突して問題の切れ目を誤検出するので、必ず落とす。
+    """
+    out: list[str] = []
+    expect_nombre = False
+    for line in lines:
+        stripped = line.strip()
+        if HEADER_RE.match(stripped):
+            expect_nombre = True
+            continue
+        if expect_nombre:
+            if stripped == "":
+                continue  # 全角スペースだけの行もここに入る
+            if re.fullmatch(r"\d{1,3}", stripped):
+                expect_nombre = False
+                continue
+            expect_nombre = False
+        out.append(line)
+    return out
+
+
+def page_lines(page: pymupdf.Page) -> list[str]:
+    """1ページを行の列にする。
+
+    `page.get_text()` は行の区切りを `\\n` で表すが、化けた文字コードに
+    `U+000A`（改行と同じ値）が含まれる回があり、両者を区別できない。
+    グリフ単位で取れる `rawdict` を使い、行の区切りは構造から決める。
+    """
+    lines: list[str] = []
+    for block in page.get_text("rawdict")["blocks"]:
+        for line in block.get("lines", []):
+            lines.append("".join(c["c"] for span in line["spans"] for c in span["chars"]))
+    return lines
+
+
+def body_pages(doc: pymupdf.Document, mapping: dict[str, str] | None = None) -> list[list[str]]:
+    """問題本文のページだけを、ヘッダーとノンブルを落として返す。
+
+    表紙・注意事項・解答用紙見本のページは、`（例1 ）` のような設問例と
+    マークシートの見本（数字だけの行が延々と続く）を含む。これを本文と
+    間違えると、見本の数字を問題番号と誤認して全体が崩れる。
+
+    文字化けの修復は**ページ全体に対して**行う。括弧が行をまたぐことがあり、
+    行ごとに直すと対にできないため。
+    """
     pages: list[list[str]] = []
     for page in doc:
-        raw = page.get_text().split("\n")
-        if len(raw) < 4:
+        if FRONT_MATTER_RE.search(page.get_text()):
             continue
-        if not HEADER_RE.match(raw[0].strip()):
-            continue
-        if raw[1] != NOMBRE_MARK:
-            continue  # 表紙・注意事項・解答用紙見本のページ
-        if not re.fullmatch(r"\d{1,3}", raw[2].strip()):
-            continue
-        pages.append(raw[3:])
+        cleaned = strip_header_and_nombre(
+            [repair_chars(line, mapping) for line in page_lines(page)]
+        )
+        if any(line.strip() for line in cleaned):
+            pages.append(cleaned)
     return pages
 
 
-def parse_questions(doc: pymupdf.Document, total: int) -> list[Question]:
+def parse_questions(
+    doc: pymupdf.Document, total: int, mapping: dict[str, str] | None = None
+) -> list[Question]:
     """問題番号の連番を頼りに切り分ける。
 
     「次に来るのは必ず N 番」と決め打つことで、選択肢番号や本文中の数字との
     取り違えを防ぐ。番号が飛んだら取りこぼしとして報告する。
     """
-    lines = [line for page in body_pages(doc) for line in page]
+    lines = [line for page in body_pages(doc, mapping) for line in page]
     questions: list[Question] = []
     expected = 1
     current: Question | None = None
@@ -285,8 +382,17 @@ def classify(q: Question) -> str | None:
     return None
 
 
-def analyze(doc: pymupdf.Document, total: int) -> list[Question]:
-    questions = parse_questions(doc, total)
+def analyze(
+    doc: pymupdf.Document, total: int, mapping: dict[str, str] | None = None
+) -> list[Question]:
+    questions = parse_questions(doc, total, mapping)
+    # 〈〉 の代役の対応付けは、行を繋いだ後でないとできない
+    # （`法律〈障害者総合支援\n法〉` のように括弧が行をまたぐため）
+    for q in questions:
+        q.text = repair_brackets(q.text, mapping)
+        q.choices = [repair_brackets(c, mapping) for c in q.choices]
+        if q.shared_context is not None:
+            q.shared_context = repair_brackets(q.shared_context, mapping)
     for q in questions:
         q.excluded = classify(q)
         if q.excluded is None and len(q.choices) > 5:

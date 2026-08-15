@@ -15,7 +15,7 @@ from pathlib import Path
 import pymupdf
 
 sys.path.insert(0, str(Path(__file__).parent))
-from extract import analyze, parse_answers  # noqa: E402
+from extract import analyze, parse_answers, repair_for  # noqa: E402
 
 MATERIALS = Path(r"G:\マイドライブ\010_プロダクト開発\040_国試対策\過去問素材")
 VAULT = Path(r"G:\マイドライブ\000_My Obsidian\国試対策\問題")
@@ -102,15 +102,22 @@ def run(dry_run: bool) -> None:
                 continue
 
             doc = pymupdf.open(qpdf)
-            text = "".join(p.get_text() for p in doc)
-            broken = {c for c in text if ord(c) < 0x20 and c not in "\n\r"}
-            if broken:
-                problems.append(
-                    f"⛔ {qpdf.name}: 文字化け {len(broken)}種 → 生成せず（数字・漢字が欠落するため）"
-                )
-                continue
+            mapping = repair_for(qpdf.name)
+            questions = analyze(doc, meta["total"], mapping)
 
-            questions = analyze(doc, meta["total"])
+            # 直しきれなかった化け文字が1つでも残っていたら、その回は丸ごと生成しない。
+            # 数字が欠けた問題文（「1日50本」→「日50本」）は偽の国試問題になる
+            leftover: set[str] = set()
+            confirmed = {v for v in (mapping or {}).values() if isinstance(v, str)}
+            for q in questions:
+                whole = f"{q.shared_context or ''}{q.text}{''.join(q.choices)}"
+                leftover |= {
+                    c for c in whole if ord(c) < 0x20 and c not in confirmed and c not in "\n\r\t"
+                }
+            if leftover:
+                codes = " ".join(f"U+{ord(c):04X}" for c in sorted(leftover, key=ord))
+                problems.append(f"⛔ {qpdf.name}: 化け文字が残っている（{codes}）→ 生成せず")
+                continue
             missing = sorted(set(range(1, meta["total"] + 1)) - {q.number for q in questions})
             if missing:
                 # 一部だけ取り出して「全部入った」ことにするのが一番危ない。全部か、何も出さないか
