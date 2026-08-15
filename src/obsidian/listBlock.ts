@@ -67,13 +67,18 @@ export function registerListBlock(plugin: KokushiPlugin): void {
           return
         }
 
-        const practiceBtn = el.createEl('button', { text: '連続で解く' })
+        const practiceBtn = el.createEl('button', {
+          text: `連続で解く（${matched.length}問）`,
+          cls: 'kokushi-btn',
+        })
         practiceBtn.addEventListener('click', () => {
+          practiceBtn.disabled = true
           void (async () => {
             try {
               const questions = await resolveFilteredQuestions(plugin, source)
               if (questions.length === 0) {
                 new Notice('対象の問題がありません')
+                practiceBtn.disabled = false
                 return
               }
               el.empty()
@@ -84,6 +89,7 @@ export function registerListBlock(plugin: KokushiPlugin): void {
               el.empty()
               el.createEl('p', { text: '⚠️ 表示に失敗しました。開発者ツールのコンソールを確認してください' })
               console.error('kokushi-srs: 表示に失敗しました', error)
+              practiceBtn.disabled = false
             }
           })()
         })

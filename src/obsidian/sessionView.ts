@@ -33,7 +33,7 @@ export function renderSession(
     if (isFinished(state)) {
       const { total } = progress(state)
       container.createEl('p', { text: `${total}問解きました。` })
-      const backBtn = container.createEl('button', { text: '一覧に戻る' })
+      const backBtn = container.createEl('button', { text: '一覧に戻る', cls: 'kokushi-btn' })
       backBtn.addEventListener('click', () => onExit())
       return
     }
@@ -42,12 +42,14 @@ export function renderSession(
     const meta = id ? byId.get(id) : undefined
     if (!meta) {
       container.createEl('p', { text: '問題が見つかりませんでした。' })
+      addRecoveryButtons(container)
       return
     }
 
     const file = plugin.app.vault.getAbstractFileByPath(meta.path)
     if (!(file instanceof TFile)) {
       container.createEl('p', { text: `ファイルを読み込めません: ${meta.path}` })
+      addRecoveryButtons(container)
       return
     }
 
@@ -74,21 +76,39 @@ export function renderSession(
       console.error('kokushi-srs: 問題の読み込み・描画に失敗しました', error)
       container.empty()
       container.createEl('p', { text: '問題を読み込めませんでした。' })
+      addRecoveryButtons(container)
       return
     }
 
+    const abortBtn = questionEl.createEl('button', { text: '中断して一覧に戻る', cls: 'kokushi-btn' })
+    abortBtn.addEventListener('click', () => {
+      renderComponent?.unload()
+      renderComponent = null
+      onExit()
+    })
+
     const buttonHost = questionEl.createDiv()
     renderAnswerButtons(plugin, id!, buttonHost, () => {
-      const callout = questionEl.querySelector('.callout[data-callout="解説"] .callout-title')
-      if (callout instanceof HTMLElement) {
-        callout.click()
+      const box = questionEl.querySelector('.callout[data-callout="解説"]')
+      if (box?.classList.contains('is-collapsed')) {
+        ;(box.querySelector('.callout-title') as HTMLElement)?.click()
       }
-      const nextBtn = container.createEl('button', { text: '次へ' })
+      const nextBtn = container.createEl('button', { text: '次へ', cls: 'kokushi-btn' })
       nextBtn.addEventListener('click', () => {
         state = advance(state)
         void renderCurrentQuestion()
       })
     })
+  }
+
+  const addRecoveryButtons = (host: HTMLElement): void => {
+    const nextBtn = host.createEl('button', { text: '次へ', cls: 'kokushi-btn' })
+    nextBtn.addEventListener('click', () => {
+      state = advance(state)
+      void renderCurrentQuestion()
+    })
+    const backBtn = host.createEl('button', { text: '一覧に戻る', cls: 'kokushi-btn' })
+    backBtn.addEventListener('click', () => onExit())
   }
 
   void renderCurrentQuestion()
