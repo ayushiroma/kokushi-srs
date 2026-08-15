@@ -3,3 +3,4 @@ main.js
 *.log
 __pycache__/
 *.pyc
+.worktrees/
