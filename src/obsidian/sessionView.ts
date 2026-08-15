@@ -80,6 +80,11 @@ export function renderSession(
       return
     }
 
+    questionEl.createEl('p', {
+      text: '↑「解説を開く」で正解を確認してから記録してください',
+      cls: 'kokushi-hint',
+    })
+
     const abortBtn = questionEl.createEl('button', { text: '中断して一覧に戻る', cls: 'kokushi-btn' })
     abortBtn.addEventListener('click', () => {
       renderComponent?.unload()
@@ -88,12 +93,14 @@ export function renderSession(
     })
 
     const buttonHost = questionEl.createDiv()
+    // 「次へ」はbuttonHostのすぐ下に置く。containerの末尾（解説展開後の一番下）に
+    // 置くと、解説が長い問題でボタン群から遠く離れてしまい見つけにくくなるため。
     renderAnswerButtons(plugin, id!, buttonHost, () => {
       const box = questionEl.querySelector('.callout[data-callout="解説"]')
       if (box?.classList.contains('is-collapsed')) {
         ;(box.querySelector('.callout-title') as HTMLElement)?.click()
       }
-      const nextBtn = container.createEl('button', { text: '次へ', cls: 'kokushi-btn' })
+      const nextBtn = questionEl.createEl('button', { text: '次へ', cls: 'kokushi-btn kokushi-btn-primary' })
       nextBtn.addEventListener('click', () => {
         state = advance(state)
         void renderCurrentQuestion()
