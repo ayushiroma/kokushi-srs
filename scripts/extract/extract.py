@@ -53,15 +53,15 @@ def repair_brackets(text: str, mapping: dict[str, str] | None) -> str:
         brackets = mapping.get("_brackets")
     else:
         brackets = None
-    if isinstance(brackets, dict):
-        # 〈〉 の代役がラテン文字で、文字単体では本物と区別できない場合
-        # （`Kaup?カウプC指数` の C は括弧、`COPD` の C は本物）。
-        # 閉じ括弧の直後がラテン文字なら英単語の一部なので対にしない。
-        # 中身に改行を許すのは `法律〈障害者総合支援\n法〉` のように行をまたぐため。
-        # 60文字なのは `DOTS〈Directly Observed Treatment,Short-course〉` に合わせたもの。
-        o, c = re.escape(brackets["open"]), re.escape(brackets["close"])
-        return re.sub(rf"{o}([^{o}]{{1,60}}?){c}(?![A-Za-z])", r"〈\1〉", text)
-    return text
+    if not isinstance(brackets, dict):
+        return text
+    # 〈〉 の代役がラテン文字で、文字単体では本物と区別できない場合
+    # （`Kaup?カウプC指数` の C は括弧、`COPD` の C は本物）。
+    # 閉じ括弧の直後がラテン文字なら英単語の一部なので対にしない。
+    # 中身に改行を許すのは `法律〈障害者総合支援\n法〉` のように行をまたぐため。
+    # 60文字なのは `DOTS〈Directly Observed Treatment,Short-course〉` に合わせたもの。
+    o, c = re.escape(brackets["open"]), re.escape(brackets["close"])
+    return re.sub(rf"{o}([^{o}]{{1,60}}?){c}(?![A-Za-z])", r"〈\1〉", text)
 
 # ページ先頭の版面ヘッダー（例: DKIX-05-前H-13）。回によって記号が変わるので緩く取る
 HEADER_RE = re.compile(r"^[A-Z]{2,8}-\d{2}-[^\s]*-\d+$")
@@ -230,17 +230,87 @@ def strip_header_and_nombre(lines: list[str]) -> list[str]:
     return out
 
 
+def page_body_size(page: pymupdf.Page) -> float:
+    """そのページの本文フォントサイズ（最頻値）。
+
+    英語の読み仮名（ルビ）は本文より小さいフォントで組まれている
+    （実測で本文12.0pt・ルビ7.8pt）。最頻値を使うのは、ページ内に
+    まれに別サイズの文字（罫線の数字など）が混じっても引きずられないため。
+    """
+    sizes = [
+        round(span.get("size", 0), 1)
+        for block in page.get_text("rawdict")["blocks"]
+        for line in block.get("lines", [])
+        for span in line.get("spans", [])
+        if span["chars"]
+    ]
+    if not sizes:
+        return 0.0
+    counts: dict[float, int] = {}
+    for s in sizes:
+        counts[s] = counts.get(s, 0) + 1
+    return max(counts, key=lambda s: counts[s])
+
+
 def page_lines(page: pymupdf.Page) -> list[str]:
     """1ページを行の列にする。
 
     `page.get_text()` は行の区切りを `\\n` で表すが、化けた文字コードに
     `U+000A`（改行と同じ値）が含まれる回があり、両者を区別できない。
     グリフ単位で取れる `rawdict` を使い、行の区切りは構造から決める。
+
+    英語の読み仮名（ルビ）は本文より小さいフォントで、本文中の別の行として
+    埋め込まれている。文字コードそのものは正しく取れているが、そのまま
+    連結すると単語の途中に挟み込まれて意味不明になる
+    （例：`成人のばね指で正snapping fingerしいのはどれか`）。
+    フォントサイズが本文より明らかに小さい文字の並びを 〈 〉 で囲むことで、
+    読み仮名だとわかる形にする（挿入位置がずれることはあるが、単語を
+    分断してしまうよりは安全）。
+
+    版面ヘッダー（`DKIX-05-前H-7`）やノンブル（ページ番号だけの行）も本文より
+    小さいフォントで組まれていることがある。これらに 〈〉 を付けると
+    `strip_header_and_nombre` の正規表現と一致しなくなり、ヘッダーとして
+    検知できずに直前の問題の末尾へ紛れ込む。**行全体がヘッダー／ノンブルと
+    一致する場合は、ブラケット無しの生テキストを使う。**
+
+    `SpO〈2〉`（`SpO2` の下付き2）のように、既に〈〉付きの略語の中にある
+    下付き数字も本文より小さいフォントで組まれている。これを読み仮名として
+    扱うと `〈SpO〈2〉〉` と二重括弧になってしまう。**英字を含まない
+    （数字だけの）小さい文字列は読み仮名として扱わない。**
     """
+    body_size = page_body_size(page)
     lines: list[str] = []
     for block in page.get_text("rawdict")["blocks"]:
         for line in block.get("lines", []):
-            lines.append("".join(c["c"] for span in line["spans"] for c in span["chars"]))
+            raw_parts: list[str] = []
+            parts: list[str] = []
+            in_ruby = False
+            for span in line.get("spans", []):
+                text = "".join(c["c"] for c in span["chars"])
+                if not text:
+                    continue
+                raw_parts.append(text)
+                is_small = bool(body_size) and span.get("size", body_size) < body_size * 0.85
+                # 英字を含まない小さい文字列（SpO〈2〉の下付き2など）は読み仮名でなく
+                # 略語の一部の下付き文字なので、既に in_ruby でない限り括弧を付けない
+                is_ruby = is_small and (in_ruby or re.search(r"[A-Za-z]", text))
+                if is_ruby and not in_ruby:
+                    parts.append("〈")
+                    in_ruby = True
+                elif not is_ruby and in_ruby:
+                    parts.append("〉")
+                    in_ruby = False
+                    if text.strip() == "":
+                        continue  # 〉直後の区切り用の空白は組版の都合なので落とす
+                parts.append(text)
+            if in_ruby:
+                parts.append("〉")
+            raw_text = "".join(raw_parts)
+            stripped = raw_text.strip()
+            if HEADER_RE.match(stripped) or re.fullmatch(r"\d{1,3}", stripped):
+                lines.append(raw_text)
+            else:
+                lines.append("".join(parts))
     return lines
 
 

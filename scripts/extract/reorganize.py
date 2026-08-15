@@ -1,7 +1,11 @@
-"""問題ノートを 試験 → 回 → 時間帯 のフォルダに整理する。
+"""問題ノートを 試験 → 分野 のフォルダに整理する。
 
-1問は必ず1つの回・1つの時間帯にしか属さないので、フォルダ分けで情報が失われない
-（知識ノートをフォルダ分けしないのとは事情が逆）。
+2026-08-15、あゆさんの希望で「試験→回→時間帯」から「試験→分野」に変更。
+1問は必ず1つの分野にしか属さない（分野が付いていることが前提）ので、
+フォルダ分けで情報が失われない（知識ノートをフォルダ分けしないのとは事情が逆）。
+
+回・時間帯はフォルダでは表現しない。frontmatterの round / session に残るので、
+`演習.md` で `round: 115` のように絞り込める。
 
 Obsidianの `[[リンク]]` はファイル名で解決するので、移動してもリンクは壊れない。
 プラグインも `国試対策/問題/` 配下を再帰的に見ているのでコード変更は不要。
@@ -14,24 +18,30 @@ from pathlib import Path
 
 VAULT = Path(r"G:\マイドライブ\000_My Obsidian\国試対策\問題")
 EXAM_LABEL = {"nurse": "看護師", "phn": "保健師"}
-SESSION_LABEL = {"am": "午前", "pm": "午後"}
-
-ID_RE = re.compile(r"^(nurse|phn)-(\d+)-(am|pm)-(\d+)$")
 
 
-def target_dir(stem: str) -> Path | None:
-    m = ID_RE.match(stem)
+def read_meta(path: Path) -> dict[str, str]:
+    text = path.read_text(encoding="utf-8")
+    m = re.match(r"---\n(.*?)\n---\n", text, re.S)
     if not m:
+        return {}
+    return dict(re.findall(r"^(\w+):[ \t]*(.*)$", m.group(1), re.M))
+
+
+def target_dir(meta: dict[str, str]) -> Path | None:
+    exam = meta.get("exam", "")
+    field = meta.get("field", "")
+    if exam not in EXAM_LABEL or not field:
         return None
-    exam, round_no, session, _ = m.groups()
-    return VAULT / EXAM_LABEL[exam] / f"第{round_no}回" / SESSION_LABEL[session]
+    return VAULT / EXAM_LABEL[exam] / field
 
 
 def main(dry_run: bool) -> None:
     moved = 0
     skipped: list[str] = []
     for path in sorted(VAULT.rglob("*.md")):
-        dest_dir = target_dir(path.stem)
+        meta = read_meta(path)
+        dest_dir = target_dir(meta)
         if dest_dir is None:
             skipped.append(path.name)
             continue
