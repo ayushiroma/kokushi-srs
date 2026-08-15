@@ -26,7 +26,7 @@ SOURCES = {
 def existing_notes() -> dict[tuple[str, int, str, int], tuple[str, list[str], list[int]]]:
     """既存ノートから 問題文・選択肢・正答 を読み出す。"""
     out = {}
-    for path in sorted(VAULT.glob("*.md")):
+    for path in sorted(VAULT.rglob("*.md")):
         text = path.read_text(encoding="utf-8")
         fm = re.search(r"^---\n(.*?)\n---\n", text, re.S)
         if not fm:

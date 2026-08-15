@@ -145,11 +145,15 @@ def run(dry_run: bool) -> None:
                     )
                     continue
 
-                path = VAULT / f"{exam}-{round_no}-{session}-{q.number:03d}.md"
+                # 試験 → 回 → 時間帯 のフォルダに置く。1問は必ず1か所にしか属さないので
+                # フォルダ分けで情報が失われない（知識ノートとは事情が逆）
+                folder = VAULT / meta["label"] / f"第{round_no}回" / session_ja
+                path = folder / f"{exam}-{round_no}-{session}-{q.number:03d}.md"
                 if path.exists():
                     skipped_existing += 1
                     continue
                 if not dry_run:
+                    folder.mkdir(parents=True, exist_ok=True)
                     path.write_text(
                         build_note(
                             exam=exam,
