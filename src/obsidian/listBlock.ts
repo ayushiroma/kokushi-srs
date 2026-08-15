@@ -70,15 +70,21 @@ export function registerListBlock(plugin: KokushiPlugin): void {
         const practiceBtn = el.createEl('button', { text: '連続で解く' })
         practiceBtn.addEventListener('click', () => {
           void (async () => {
-            const questions = await resolveFilteredQuestions(plugin, source)
-            if (questions.length === 0) {
-              new Notice('対象の問題がありません')
-              return
+            try {
+              const questions = await resolveFilteredQuestions(plugin, source)
+              if (questions.length === 0) {
+                new Notice('対象の問題がありません')
+                return
+              }
+              el.empty()
+              renderSession(plugin, el, questions, () => {
+                void renderList()
+              })
+            } catch (error) {
+              el.empty()
+              el.createEl('p', { text: '⚠️ 表示に失敗しました。開発者ツールのコンソールを確認してください' })
+              console.error('kokushi-srs: 表示に失敗しました', error)
             }
-            el.empty()
-            renderSession(plugin, el, questions, () => {
-              void renderList()
-            })
           })()
         })
 
