@@ -281,3 +281,67 @@ li.kokushi-choice-row.kokushi-choice-missed {
   font-weight: 600;
   margin: 8px 0;
 }
+
+/* --- 弱点ページの表 --- */
+/* 表は横に長くなることがあるので、ページ全体ではなく表の中だけを横スクロールさせる */
+.kokushi-table-wrap {
+  overflow-x: auto;
+  margin: 8px 0 16px 0;
+}
+
+.kokushi-table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 0.9rem;
+}
+
+.kokushi-table th {
+  text-align: left;
+  font-weight: 600;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--background-modifier-border);
+  padding: 4px 10px 4px 0;
+  white-space: nowrap;
+}
+
+.kokushi-table td {
+  padding: 4px 10px 4px 0;
+  border-bottom: 1px solid var(--background-modifier-border);
+  vertical-align: middle;
+}
+
+/* 数字は右揃えにする。桁が揃わないと分野同士を見比べられない */
+.kokushi-table th:nth-child(n + 3),
+.kokushi-cell-num {
+  text-align: right;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.kokushi-cell-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 120px;
+}
+
+.kokushi-cell-percent {
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* 表の中に入れるので、ホーム画面のバーより細くする */
+.kokushi-bar-slim {
+  height: 6px;
+  width: 60px;
+  flex: 0 0 60px;
+  margin-bottom: 0;
+}
+
+.kokushi-hisshu {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 4px 0;
+}

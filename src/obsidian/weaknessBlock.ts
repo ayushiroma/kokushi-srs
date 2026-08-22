@@ -12,9 +12,17 @@ import type KokushiPlugin from '../main'
 
 const DEFAULT_TOPIC_LIMIT = 5
 
-function bar(rate: number): string {
-  const filled = Math.round(rate * 10)
-  return '█'.repeat(filled) + '░'.repeat(10 - filled)
+/**
+ * 進捗バーを描く。
+ *
+ * 以前は `█` と `░` を並べた文字のバーだったが、環境によっては絵文字系フォントに
+ * フォールバックして虹色のブロックとして描画され、数字が読めなくなる
+ * （2026-08-22の実機確認で判明）。ホーム画面と同じCSSのバーに揃える。
+ */
+function renderBar(parent: HTMLElement, rate: number): void {
+  const bar = parent.createDiv({ cls: 'kokushi-bar kokushi-bar-slim' })
+  const fill = bar.createDiv({ cls: 'kokushi-bar-fill' })
+  fill.style.width = `${Math.min(100, Math.max(0, Math.round(rate * 100)))}%`
 }
 
 function renderRows(
@@ -27,19 +35,37 @@ function renderRows(
     parent.createEl('p', { text: '　まだデータがありません' })
     return
   }
-  const ul = parent.createEl('ul')
+
+  // 表にする。分野名の長さがばらばらなので、箇条書きだと数字の開始位置が
+  // 行ごとにずれて、分野同士を見比べられない（2026-08-22の実機確認で判明）。
+  const wrap = parent.createDiv({ cls: 'kokushi-table-wrap' })
+  const table = wrap.createEl('table', { cls: 'kokushi-table' })
+
+  const head = table.createEl('thead').createEl('tr')
+  for (const label of [filterKey === 'field' ? '分野' : 'トピック', '仕上がり', '定着', '苦手', '未着手']) {
+    head.createEl('th', { text: label })
+  }
+
+  const body = table.createEl('tbody')
   for (const row of rows) {
-    const li = ul.createEl('li')
+    const tr = body.createEl('tr')
     const percent = Math.round(row.masteryRate * 100)
-    const link = li.createEl('a', { text: row.key, href: '#' })
+
+    const nameCell = tr.createEl('td')
+    const link = nameCell.createEl('a', { text: row.key, href: '#' })
     link.onclick = (ev) => {
       ev.preventDefault()
       void openInPreview(plugin.app, '国試対策/自分で選んで解く')
-      new Notice(`「演習.md」で ${filterKey}: ${row.key} / status: 苦手 に書き換えて絞り込めます`)
+      new Notice(`「自分で選んで解く」で ${filterKey === 'field' ? '分野' : 'トピック'}「${row.key}」を選んで絞り込めます`)
     }
-    li.createSpan({
-      text: `　${bar(row.masteryRate)}　定着 ${row.mastered}/${row.attempted}（${percent}%）｜苦手 ${row.weak}｜未着手 ${row.untouched}`,
-    })
+
+    const barCell = tr.createEl('td', { cls: 'kokushi-cell-bar' })
+    renderBar(barCell, row.masteryRate)
+    barCell.createSpan({ text: `${percent}%`, cls: 'kokushi-cell-percent' })
+
+    tr.createEl('td', { text: `${row.mastered}/${row.attempted}`, cls: 'kokushi-cell-num' })
+    tr.createEl('td', { text: String(row.weak), cls: 'kokushi-cell-num' })
+    tr.createEl('td', { text: String(row.untouched), cls: 'kokushi-cell-num' })
   }
 }
 
@@ -68,9 +94,12 @@ function renderHisshu(
   }
   const percent = Math.round(score.rate * 100)
   const mark = score.passing === true ? '✅' : '⚠️'
-  parent.createEl('p', {
+  const line = parent.createDiv({ cls: 'kokushi-hisshu' })
+  line.createSpan({ text: mark })
+  renderBar(line, score.rate)
+  line.createSpan({
     text:
-      `　${mark} ${bar(score.rate)}　正答 ${score.correct}/${score.attempted}（${percent}%）` +
+      `正答 ${score.correct}/${score.attempted}（${percent}%）` +
       `｜必要 ${Math.round(HISSHU_PASS_RATE * 100)}%｜未着手 ${hisshuIds.size - score.attempted}問`,
   })
   // △は正解に数えていない。まぐれ当たりを8割に入れると本番で足をすくわれるため
