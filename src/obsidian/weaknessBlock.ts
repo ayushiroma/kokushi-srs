@@ -7,6 +7,7 @@ import type { Result, ReviewEntry } from '../core/types'
 import { earliestExamDate, loadConfig } from './config'
 import { openInPreview } from './openInPreview'
 import { indexQuestions, type QuestionMeta } from './questionIndex'
+import { RENDER_ERROR } from './messages'
 import type KokushiPlugin from '../main'
 
 const DEFAULT_TOPIC_LIMIT = 5
@@ -115,7 +116,7 @@ export function registerWeaknessBlock(plugin: KokushiPlugin): void {
       renderRows(el, topicRows.slice(0, topicLimit), plugin, 'tag')
     } catch (error) {
       el.empty()
-      el.createEl('p', { text: '⚠️ 表示に失敗しました。開発者ツールのコンソールを確認してください' })
+      el.createEl('p', { text: RENDER_ERROR })
       console.error('kokushi-srs: 表示に失敗しました', error)
     }
   })

@@ -1,6 +1,7 @@
 import { buildKnowledgeMap, countUniqueNotes } from '../core/knowledgeMap'
 import { openInPreview } from './openInPreview'
 import { indexQuestions } from './questionIndex'
+import { RENDER_ERROR } from './messages'
 import type KokushiPlugin from '../main'
 
 const KNOWLEDGE_DIR = '国試対策/知識ノート'
@@ -65,7 +66,7 @@ export function registerKnowledgeMapBlock(plugin: KokushiPlugin): void {
       }
     } catch (error) {
       el.empty()
-      el.createEl('p', { text: '⚠️ 表示に失敗しました。開発者ツールのコンソールを確認してください' })
+      el.createEl('p', { text: RENDER_ERROR })
       console.error('kokushi-srs: 知識マップの表示に失敗しました', error)
     }
   })

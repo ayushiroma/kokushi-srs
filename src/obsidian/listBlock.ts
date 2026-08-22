@@ -8,6 +8,7 @@ import { earliestExamDate, loadConfig } from './config'
 import { openInPreview } from './openInPreview'
 import { indexQuestions, type QuestionMeta } from './questionIndex'
 import { renderSession } from './sessionView'
+import { RENDER_ERROR } from './messages'
 import type KokushiPlugin from '../main'
 
 export async function resolveFilteredQuestions(plugin: KokushiPlugin, source: string): Promise<QuestionMeta[]> {
@@ -88,7 +89,7 @@ export function registerListBlock(plugin: KokushiPlugin): void {
               })
             } catch (error) {
               el.empty()
-              el.createEl('p', { text: '⚠️ 表示に失敗しました。開発者ツールのコンソールを確認してください' })
+              el.createEl('p', { text: RENDER_ERROR })
               console.error('kokushi-srs: 表示に失敗しました', error)
               practiceBtn.disabled = false
             }
@@ -106,7 +107,7 @@ export function registerListBlock(plugin: KokushiPlugin): void {
         }
       } catch (error) {
         el.empty()
-        el.createEl('p', { text: '⚠️ 表示に失敗しました。開発者ツールのコンソールを確認してください' })
+        el.createEl('p', { text: RENDER_ERROR })
         console.error('kokushi-srs: 表示に失敗しました', error)
       }
     }
