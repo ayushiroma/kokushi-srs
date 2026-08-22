@@ -82,7 +82,7 @@ export function renderSession(
     }
 
     questionEl.createEl('p', {
-      text: '↑「解説を開く」で正解を確認してから記録してください',
+      text: '番号を押すと答え合わせをして、解説が開きます',
       cls: 'kokushi-hint',
     })
 
@@ -104,6 +104,19 @@ export function renderSession(
         const box = questionEl.querySelector('.callout[data-callout="解説"]')
         if (box?.classList.contains('is-collapsed')) {
           ;(box.querySelector('.callout-title') as HTMLElement)?.click()
+        }
+        // AI生成の解説であることを、読む場所に出す。使い方ノートの注意書きは読み飛ばされる。
+        // 問題ファイル1,675件を書き換えず、描画時に足す。
+        const fm = plugin.app.metadataCache.getCache(meta.path)?.frontmatter
+        if (
+          fm?.explanation_source === 'ai' &&
+          box !== null &&
+          box.querySelector('.kokushi-ai-note') === null
+        ) {
+          ;(box as HTMLElement).createEl('p', {
+            text: '※この解説はAIが作成しています。教科書で確認してください。',
+            cls: 'kokushi-ai-note',
+          })
         }
         // 押し直しで onAnswered が複数回呼ばれても「次へ」が重複しないようにする
         if (questionEl.querySelector('.kokushi-next-btn') !== null) return
