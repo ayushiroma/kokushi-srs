@@ -175,17 +175,23 @@ export function renderAnswerButtons(
     judged = true
     for (const [n, node] of pickables) {
       node.addClass('kokushi-picked-done')
+      node.removeClass('kokushi-choice-selected')
       if (node instanceof HTMLButtonElement) node.disabled = true
+
+      // 「正答かどうか」と「自分が選んだかどうか」は別々の情報なので、
+      // 排他の分岐にせず、それぞれ独立に印を付ける。
+      // 片方だけの表現にすると、自分が選んで正解した行が区別できなくなる。
       const isAnswer = answer.includes(n)
       const isChosen = selected.has(n)
-      // 記号を必ず付ける。色だけだと見分けられない人がいる
-      if (isAnswer) {
-        node.addClass('kokushi-choice-answer')
-        node.createSpan({ text: ' ⭕', cls: 'kokushi-mark' })
-      } else if (isChosen) {
-        node.addClass('kokushi-choice-missed')
-        node.createSpan({ text: ' ❌', cls: 'kokushi-mark' })
-      }
+
+      if (isAnswer) node.addClass('kokushi-choice-answer')
+      else if (isChosen) node.addClass('kokushi-choice-missed')
+
+      // 色だけに頼らず、必ず文字で示す
+      const marks = node.createSpan({ cls: 'kokushi-marks' })
+      if (isAnswer) marks.createSpan({ text: '正答', cls: 'kokushi-chip kokushi-chip-answer' })
+      if (isChosen) marks.createSpan({ text: 'あなたの答え', cls: 'kokushi-chip kokushi-chip-mine' })
+      if (!isAnswer && !isChosen) marks.remove()
     }
     guide?.remove()
     verdict.setText(result === 'ok' ? '記録：⭕ 正解' : '記録：❌ 不正解')
@@ -215,6 +221,23 @@ export function renderAnswerButtons(
   }
 
   if (list !== null) {
+    // 前回この関数が走ったときの残骸を片付ける。
+    // resultHost と guide は el の外（Obsidianが管理するDOM）に差し込むため、
+    // ノートが再描画されて処理が再実行されると、古いものが残って二重に表示される。
+    for (const stale of Array.from(
+      list.parentElement?.querySelectorAll(':scope > .kokushi-result, :scope > .kokushi-guide') ?? []
+    )) {
+      stale.remove()
+    }
+    for (const li of Array.from(list.querySelectorAll(':scope > li'))) {
+      ;(li as HTMLElement).removeClass('kokushi-choice-row')
+      ;(li as HTMLElement).removeClass('kokushi-choice-selected')
+      ;(li as HTMLElement).removeClass('kokushi-picked-done')
+      ;(li as HTMLElement).removeClass('kokushi-choice-answer')
+      ;(li as HTMLElement).removeClass('kokushi-choice-missed')
+      li.querySelector(':scope > .kokushi-marks')?.remove()
+    }
+
     // 描画済みの選択肢リストが見つかった。行全体を押せるようにする。
     const items = Array.from(list.querySelectorAll(':scope > li'))
     items.forEach((li, index) => {
@@ -232,7 +255,6 @@ export function renderAnswerButtons(
       }
     })
     if (guide !== null) list.insertAdjacentElement('beforebegin', guide)
-    else list.insertAdjacentElement('beforebegin', createDiv({ cls: 'kokushi-guide-spacer' }))
     // 判定結果を選択肢のすぐ下へ移す
     list.insertAdjacentElement('afterend', resultHost)
   } else {

@@ -95,19 +95,47 @@ li.kokushi-choice-row.kokushi-choice-selected {
   background-color: transparent;
 }
 
-/* 正誤は記号（⭕❌）で示し、色は補助に留める */
+/* 判定後は押せないので、押せそうな見た目（枠線）を消す */
+.kokushi-choice-row.kokushi-picked-done {
+  border-top-color: transparent;
+  border-right-color: transparent;
+  border-bottom-color: transparent;
+}
+
+/* 判定後は、左端の線と右端の文字ラベルだけで示す。
+   行を全面塗りすると目が疲れるうえ、「正答」と「自分の答え」が
+   どちらも色の面になって区別できなくなる（2026-08-22の実機確認で判明）。 */
 li.kokushi-choice-row.kokushi-choice-answer {
-  background-color: var(--background-modifier-success) !important;
-  color: var(--text-normal) !important;
+  border-left: 4px solid var(--text-success);
 }
 
 li.kokushi-choice-row.kokushi-choice-missed {
-  background-color: var(--background-modifier-error) !important;
-  color: var(--text-normal) !important;
+  border-left: 4px solid var(--text-error);
 }
 
-.kokushi-mark {
+.kokushi-marks {
+  float: right;
+  margin-left: 8px;
+  white-space: nowrap;
+}
+
+.kokushi-chip {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 8px;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  font-size: 0.75rem;
   font-weight: 600;
+  line-height: 1.6;
+}
+
+.kokushi-chip-answer {
+  color: var(--text-success);
+}
+
+.kokushi-chip-mine {
+  color: var(--text-muted);
 }
 
 /* --- 何個選ぶかの案内。選択肢の直前に出す --- */
