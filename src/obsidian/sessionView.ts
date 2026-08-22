@@ -107,9 +107,8 @@ export function renderSession(
         }
         // AI生成の解説であることを、読む場所に出す。使い方ノートの注意書きは読み飛ばされる。
         // 問題ファイル1,675件を書き換えず、描画時に足す。
-        const fm = plugin.app.metadataCache.getCache(meta.path)?.frontmatter
         if (
-          fm?.explanation_source === 'ai' &&
+          frontmatter?.explanation_source === 'ai' &&
           box !== null &&
           box.querySelector('.kokushi-ai-note') === null
         ) {
