@@ -1,4 +1,5 @@
 import { buildKnowledgeMap, countUniqueNotes } from '../core/knowledgeMap'
+import { openInPreview } from './openInPreview'
 import { indexQuestions } from './questionIndex'
 import type KokushiPlugin from '../main'
 
@@ -24,7 +25,7 @@ function appendLinks(parent: HTMLElement, names: string[], plugin: KokushiPlugin
     const link = parent.createEl('a', { text: name, href: '#' })
     link.onclick = (ev) => {
       ev.preventDefault()
-      void plugin.app.workspace.openLinkText(name, '', false)
+      void openInPreview(plugin.app, name)
     }
   })
 }

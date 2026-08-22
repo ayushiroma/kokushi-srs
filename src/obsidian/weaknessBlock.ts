@@ -5,6 +5,7 @@ import { HISSHU_PASS_RATE, isHisshu, scoreHisshu, type HisshuRanges } from '../c
 import { buildStates, latestResults } from '../core/state'
 import type { Result, ReviewEntry } from '../core/types'
 import { earliestExamDate, loadConfig } from './config'
+import { openInPreview } from './openInPreview'
 import { indexQuestions, type QuestionMeta } from './questionIndex'
 import type KokushiPlugin from '../main'
 
@@ -32,7 +33,7 @@ function renderRows(
     const link = li.createEl('a', { text: row.key, href: '#' })
     link.onclick = (ev) => {
       ev.preventDefault()
-      void plugin.app.workspace.openLinkText('国試対策/演習', '', false)
+      void openInPreview(plugin.app, '国試対策/自分で選んで解く')
       new Notice(`「演習.md」で ${filterKey}: ${row.key} / status: 苦手 に書き換えて絞り込めます`)
     }
     li.createSpan({

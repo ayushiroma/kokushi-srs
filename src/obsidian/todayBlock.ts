@@ -4,6 +4,7 @@ import { buildQueue } from '../core/queue'
 import { isMastered } from '../core/srs'
 import { buildStates } from '../core/state'
 import { earliestExamDate, loadConfig } from './config'
+import { openInPreview } from './openInPreview'
 import { indexQuestions, type QuestionMeta } from './questionIndex'
 import type KokushiPlugin from '../main'
 
@@ -19,7 +20,7 @@ function renderList(parent: HTMLElement, title: string, metas: QuestionMeta[], p
     const link = li.createEl('a', { text: `${meta.id}　${meta.field}`, href: '#' })
     link.onclick = (ev) => {
       ev.preventDefault()
-      void plugin.app.workspace.openLinkText(meta.path, '', false)
+      void openInPreview(plugin.app, meta.path)
     }
   }
 }

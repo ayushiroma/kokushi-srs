@@ -4,6 +4,7 @@ import { earliestExamDate, loadConfig } from './obsidian/config'
 import { registerKnowledgeMapBlock } from './obsidian/knowledgeMapBlock'
 import { registerListBlock } from './obsidian/listBlock'
 import { LogStore } from './obsidian/logStore'
+import { openInPreview } from './obsidian/openInPreview'
 import { indexQuestions } from './obsidian/questionIndex'
 import { registerTodayBlock } from './obsidian/todayBlock'
 import { registerWeaknessBlock } from './obsidian/weaknessBlock'
@@ -18,6 +19,20 @@ export default class KokushiPlugin extends Plugin {
     registerListBlock(this)
     registerWeaknessBlock(this)
     registerKnowledgeMapBlock(this)
+
+    // 左端のリボンから必ずホームへ帰れるようにする。
+    // ファイルツリーに1,675件並ぶVaultでは、これが唯一の確実な入口になる。
+    this.addRibbonIcon('graduation-cap', '国試対策', () => {
+      void openInPreview(this.app, '国試対策/ホーム')
+    })
+
+    this.addCommand({
+      id: 'kokushi-open-home',
+      name: 'ホームを開く',
+      callback: () => {
+        void openInPreview(this.app, '国試対策/ホーム')
+      },
+    })
 
     this.addCommand({
       id: 'kokushi-debug-index',
