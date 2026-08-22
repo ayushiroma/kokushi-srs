@@ -26,10 +26,11 @@
   background-color: var(--interactive-accent-hover);
 }
 
-.kokushi-btn-selected {
-  background-color: var(--interactive-accent);
-  color: var(--text-on-accent);
+.kokushi-buttons button.kokushi-btn-selected {
+  background-color: var(--interactive-accent) !important;
+  color: var(--text-on-accent) !important;
   font-weight: 600;
+  box-shadow: inset 0 0 0 2px var(--interactive-accent-hover);
 }
 
 .kokushi-hint {

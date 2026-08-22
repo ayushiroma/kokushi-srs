@@ -100,7 +100,12 @@ export function renderSession(
       if (box?.classList.contains('is-collapsed')) {
         ;(box.querySelector('.callout-title') as HTMLElement)?.click()
       }
-      const nextBtn = questionEl.createEl('button', { text: '次へ', cls: 'kokushi-btn kokushi-btn-primary' })
+      // 押し直しで onAnswered が複数回呼ばれても「次へ」が重複しないようにする
+      if (questionEl.querySelector('.kokushi-next-btn') !== null) return
+      const nextBtn = questionEl.createEl('button', {
+        text: '次へ',
+        cls: 'kokushi-btn kokushi-btn-primary kokushi-next-btn',
+      })
       nextBtn.addEventListener('click', () => {
         state = advance(state)
         void renderCurrentQuestion()
