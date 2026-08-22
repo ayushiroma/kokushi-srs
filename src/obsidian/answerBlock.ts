@@ -19,12 +19,23 @@ export function renderAnswerButtons(
   const el = container
 
   const row = el.createDiv({ cls: 'kokushi-buttons' })
+  const reasonArea = el.createDiv({ cls: 'kokushi-reason-area' })
   const feedback = el.createDiv({ cls: 'kokushi-feedback' })
 
   // 連打による二重記録を防ぐ。ボタンがDOMから消えるのは非同期I/Oが終わったあとなので、
   // 「消えたかどうか」では守れない。二重記録されると復習アルゴリズムに2回分適用され、
   // 実際より早く「定着」扱いになってしまう。
   let busy = false
+
+  const buttons = new Map<Result, HTMLButtonElement>()
+
+  // 押し直しは許可する（最後の記録が正として扱われる設計、buildStates参照）。
+  // ボタンは消さず、選んだものだけ色を変えて「今どれを選んでいるか」を見えるようにする。
+  const markSelected = (result: Result): void => {
+    for (const [r, btn] of buttons) {
+      btn.toggleClass('kokushi-btn-selected', r === result)
+    }
+  }
 
   /** 記録できたら true、失敗したら false（呼び出し側が再試行できるようにする） */
   const record = async (result: Result, reason?: string): Promise<boolean> => {
@@ -50,11 +61,12 @@ export function renderAnswerButtons(
     }
 
     // ここから先は記録済み。表示に失敗しても「成功」として扱う（再試行させない）。
-    row.empty()
+    busy = false
+    markSelected(result)
     try {
       const states = buildStates(await plugin.logStore.readAll())
       const next = states.get(id)?.nextDue ?? '不明'
-      feedback.setText(`記録しました。次回は ${next}`)
+      feedback.setText(`記録しました。次回は ${next}（押し直すと変更できます）`)
       new Notice(`記録しました（次回 ${next}）`)
     } catch (error) {
       feedback.setText('記録しました（次回の復習日は取得できませんでした）')
@@ -67,15 +79,17 @@ export function renderAnswerButtons(
 
   for (const { result, label } of LABELS) {
     const button = row.createEl('button', { text: label, cls: 'kokushi-btn' })
+    buttons.set(result, button)
     button.onclick = () => {
       if (busy) return
       if (result !== 'wrong') {
+        reasonArea.empty()
         void record(result)
         return
       }
-      row.empty()
+      reasonArea.empty()
       feedback.setText('なぜ間違えた？（空欄のままEnterでもOK）')
-      const input = el.createEl('input', { cls: 'kokushi-reason', type: 'text' })
+      const input = reasonArea.createEl('input', { cls: 'kokushi-reason', type: 'text' })
       input.focus()
       input.onkeydown = (ev: KeyboardEvent) => {
         if (ev.key !== 'Enter') return
