@@ -1,6 +1,7 @@
 import { Notice, Plugin } from 'obsidian'
 import { registerAnswerBlock } from './obsidian/answerBlock'
 import { earliestExamDate, loadConfig } from './obsidian/config'
+import { registerHomeBlock } from './obsidian/homeBlock'
 import { registerKnowledgeMapBlock } from './obsidian/knowledgeMapBlock'
 import { registerListBlock } from './obsidian/listBlock'
 import { LogStore } from './obsidian/logStore'
@@ -15,6 +16,7 @@ export default class KokushiPlugin extends Plugin {
   override async onload(): Promise<void> {
     this.logStore = new LogStore(this.app)
     registerAnswerBlock(this)
+    registerHomeBlock(this)
     registerTodayBlock(this)
     registerListBlock(this)
     registerWeaknessBlock(this)
