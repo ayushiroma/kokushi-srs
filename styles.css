@@ -130,8 +130,12 @@ li.kokushi-choice-row.kokushi-choice-missed {
   line-height: 1.6;
 }
 
+/* 「正答」の文字自体が情報なので、色は付けない。
+   テーマによっては --text-success が蛍光緑で、画面がちかちかする
+   （2026-08-22の実機確認で判明）。緑は左端の線だけに残す。 */
 .kokushi-chip-answer {
-  color: var(--text-success);
+  color: var(--text-normal);
+  font-weight: 700;
 }
 
 .kokushi-chip-mine {
@@ -188,10 +192,6 @@ li.kokushi-choice-row.kokushi-choice-missed {
   margin: 8px 0;
   font-size: 1.1rem;
   font-weight: 600;
-}
-
-.kokushi-verdict-ok {
-  color: var(--text-success);
 }
 
 .kokushi-btn-quiet {
