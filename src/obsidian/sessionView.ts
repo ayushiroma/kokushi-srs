@@ -2,7 +2,8 @@ import { Component, MarkdownRenderer, TFile } from 'obsidian'
 import type KokushiPlugin from '../main'
 import type { QuestionMeta } from './questionIndex'
 import { advance, currentId, isFinished, progress, startSession } from '../core/session'
-import { renderAnswerButtons } from './answerBlock'
+import { parseChoiceNumbers } from '../core/choices'
+import { readAnswer, renderAnswerButtons } from './answerBlock'
 
 // フェンス前後の空白・タブや \r\n 改行が入っていても除去できるよう寛容にしておく。
 // 万一これでも一致しない場合は、下の残存チェックで console.warn を出す。
@@ -95,21 +96,26 @@ export function renderSession(
     const buttonHost = questionEl.createDiv()
     // 「次へ」はbuttonHostのすぐ下に置く。containerの末尾（解説展開後の一番下）に
     // 置くと、解説が長い問題でボタン群から遠く離れてしまい見つけにくくなるため。
-    renderAnswerButtons(plugin, id!, buttonHost, () => {
-      const box = questionEl.querySelector('.callout[data-callout="解説"]')
-      if (box?.classList.contains('is-collapsed')) {
-        ;(box.querySelector('.callout-title') as HTMLElement)?.click()
-      }
-      // 押し直しで onAnswered が複数回呼ばれても「次へ」が重複しないようにする
-      if (questionEl.querySelector('.kokushi-next-btn') !== null) return
-      const nextBtn = questionEl.createEl('button', {
-        text: '次へ',
-        cls: 'kokushi-btn kokushi-btn-primary kokushi-next-btn',
-      })
-      nextBtn.addEventListener('click', () => {
-        state = advance(state)
-        void renderCurrentQuestion()
-      })
+    const frontmatter = plugin.app.metadataCache.getCache(meta.path)?.frontmatter
+    renderAnswerButtons(plugin, id!, buttonHost, {
+      choices: parseChoiceNumbers(raw),
+      answer: readAnswer(frontmatter?.answer),
+      onAnswered: () => {
+        const box = questionEl.querySelector('.callout[data-callout="解説"]')
+        if (box?.classList.contains('is-collapsed')) {
+          ;(box.querySelector('.callout-title') as HTMLElement)?.click()
+        }
+        // 押し直しで onAnswered が複数回呼ばれても「次へ」が重複しないようにする
+        if (questionEl.querySelector('.kokushi-next-btn') !== null) return
+        const nextBtn = questionEl.createEl('button', {
+          text: '次へ',
+          cls: 'kokushi-btn kokushi-btn-primary kokushi-next-btn',
+        })
+        nextBtn.addEventListener('click', () => {
+          state = advance(state)
+          void renderCurrentQuestion()
+        })
+      },
     })
   }
 
