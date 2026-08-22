@@ -27,6 +27,20 @@ export function renderSession(
   // unload し、新しい短命な Component を発行する。
   let renderComponent: Component | null = null
 
+  /**
+   * 次の問題を描いたら、描画先を画面の上端に合わせる。
+   *
+   * 同じ場所を空にして描き直しているだけなので、スクロール位置は前の問題のまま残る。
+   * 解説まで読み下げてから「次へ」を押すと、次の問題は途中から表示されて
+   * 毎回自分で上に戻すことになる（2026-08-22の実機確認であゆさんから指摘）。
+   *
+   * behavior は指定しない。スムーススクロールにすると問題が切り替わるたびに
+   * 画面が流れて目が疲れる。
+   */
+  const scrollToTop = (): void => {
+    container.scrollIntoView({ block: 'start' })
+  }
+
   const renderCurrentQuestion = async (): Promise<void> => {
     renderComponent?.unload()
     renderComponent = null
@@ -37,6 +51,7 @@ export function renderSession(
       container.createEl('p', { text: `${total}問解きました。` })
       const backBtn = container.createEl('button', { text: '一覧に戻る', cls: 'kokushi-btn' })
       backBtn.addEventListener('click', () => onExit())
+      scrollToTop()
       return
     }
 
@@ -117,6 +132,7 @@ export function renderSession(
       renderComponent = null
       onExit()
     })
+    scrollToTop()
   }
 
   const addRecoveryButtons = (host: HTMLElement): void => {
