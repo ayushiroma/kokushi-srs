@@ -6,6 +6,7 @@ import { registerKnowledgeMapBlock } from './obsidian/knowledgeMapBlock'
 import { registerListBlock } from './obsidian/listBlock'
 import { LogStore } from './obsidian/logStore'
 import { openInPreview } from './obsidian/openInPreview'
+import { registerPickerBlock } from './obsidian/pickerBlock'
 import { indexQuestions } from './obsidian/questionIndex'
 import { registerTodayBlock } from './obsidian/todayBlock'
 import { registerWeaknessBlock } from './obsidian/weaknessBlock'
@@ -19,6 +20,7 @@ export default class KokushiPlugin extends Plugin {
     registerHomeBlock(this)
     registerTodayBlock(this)
     registerListBlock(this)
+    registerPickerBlock(this)
     registerWeaknessBlock(this)
     registerKnowledgeMapBlock(this)
 
