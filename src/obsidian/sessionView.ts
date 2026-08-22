@@ -3,7 +3,7 @@ import type KokushiPlugin from '../main'
 import type { QuestionMeta } from './questionIndex'
 import { advance, currentId, isFinished, progress, startSession } from '../core/session'
 import { parseChoiceNumbers } from '../core/choices'
-import { readAnswer, renderAnswerButtons } from './answerBlock'
+import { NEXT_HOST_CLASS, readAnswer, renderAnswerButtons } from './answerBlock'
 import { revealExplanation } from './explanation'
 
 // フェンス前後の空白・タブや \r\n 改行が入っていても除去できるよう寛容にしておく。
@@ -92,9 +92,12 @@ export function renderSession(
       choiceRoot: questionEl,
       onAnswered: () => {
         revealExplanation(plugin.app, questionEl, meta.path)
+        // 「次へ」は判定結果のすぐ下（解説より上）に置く。
+        // answerBlock が用意した置き場所を使う。見つからないときだけ従来の位置に置く。
+        const host = (questionEl.querySelector(`.${NEXT_HOST_CLASS}`) as HTMLElement | null) ?? nextHost
         // 押し直しで onAnswered が複数回呼ばれても「次へ」が重複しないようにする
-        if (nextHost.querySelector('.kokushi-next-btn') !== null) return
-        const nextBtn = nextHost.createEl('button', {
+        if (questionEl.querySelector('.kokushi-next-btn') !== null) return
+        const nextBtn = host.createEl('button', {
           text: '次へ',
           cls: 'kokushi-btn kokushi-btn-primary kokushi-next-btn',
         })

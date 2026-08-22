@@ -14,6 +14,9 @@ const LABELS: ReadonlyArray<{ result: Result; label: string }> = [
   { result: 'wrong', label: '× 不正解' },
 ]
 
+/** 「次へ」ボタンを入れる場所。sessionView から探すために共有する */
+export const NEXT_HOST_CLASS = 'kokushi-next-host'
+
 export interface AnswerOptions {
   /** 選択肢の番号。空なら番号ボタンを出さず、⭕△❌だけを出す */
   choices: number[]
@@ -44,6 +47,11 @@ export function renderAnswerButtons(
   const changeArea = resultHost.createDiv({ cls: 'kokushi-change-area' })
   const reasonArea = resultHost.createDiv({ cls: 'kokushi-reason-area' })
   const feedback = resultHost.createDiv({ cls: 'kokushi-feedback' })
+  // 「次へ」の置き場所。resultHost は選択肢のすぐ下へ移動するので、
+  // ここに置くと解説より上に出る。解説を読む必要がない問題で、
+  // 長い解説をスクロールし切らないと次へ進めないのを避けるため
+  // （2026-08-22の実機確認であゆさんから指摘）。
+  resultHost.createDiv({ cls: NEXT_HOST_CLASS })
 
   // 連打による二重記録を防ぐ。ボタンがDOMから消えるのは非同期I/Oが終わったあとなので、
   // 「消えたかどうか」では守れない。二重記録されると復習アルゴリズムに2回分適用され、

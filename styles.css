@@ -345,3 +345,13 @@ li.kokushi-choice-row.kokushi-choice-missed {
   gap: 8px;
   margin: 4px 0;
 }
+
+/* 「次へ」は判定結果のすぐ下に出す。解説を読み飛ばしたい問題で、
+   長い解説をスクロールし切らないと次へ進めないのを避けるため */
+.kokushi-next-host {
+  margin-top: 12px;
+}
+
+.kokushi-next-host:empty {
+  margin-top: 0;
+}
