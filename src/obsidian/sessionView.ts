@@ -4,6 +4,7 @@ import type { QuestionMeta } from './questionIndex'
 import { advance, currentId, isFinished, progress, startSession } from '../core/session'
 import { parseChoiceNumbers } from '../core/choices'
 import { readAnswer, renderAnswerButtons } from './answerBlock'
+import { revealExplanation } from './explanation'
 
 // フェンス前後の空白・タブや \r\n 改行が入っていても除去できるよう寛容にしておく。
 // 万一これでも一致しない場合は、下の残存チェックで console.warn を出す。
@@ -81,45 +82,19 @@ export function renderSession(
       return
     }
 
-    questionEl.createEl('p', {
-      text: '番号を押すと答え合わせをして、解説が開きます',
-      cls: 'kokushi-hint',
-    })
-
-    const abortBtn = questionEl.createEl('button', { text: '中断して一覧に戻る', cls: 'kokushi-btn' })
-    abortBtn.addEventListener('click', () => {
-      renderComponent?.unload()
-      renderComponent = null
-      onExit()
-    })
-
     const buttonHost = questionEl.createDiv()
-    // 「次へ」はbuttonHostのすぐ下に置く。containerの末尾（解説展開後の一番下）に
-    // 置くと、解説が長い問題でボタン群から遠く離れてしまい見つけにくくなるため。
+    const nextHost = questionEl.createDiv()
+
     const frontmatter = plugin.app.metadataCache.getCache(meta.path)?.frontmatter
     renderAnswerButtons(plugin, id!, buttonHost, {
       choices: parseChoiceNumbers(raw),
       answer: readAnswer(frontmatter?.answer),
+      choiceRoot: questionEl,
       onAnswered: () => {
-        const box = questionEl.querySelector('.callout[data-callout="解説"]')
-        if (box?.classList.contains('is-collapsed')) {
-          ;(box.querySelector('.callout-title') as HTMLElement)?.click()
-        }
-        // AI生成の解説であることを、読む場所に出す。使い方ノートの注意書きは読み飛ばされる。
-        // 問題ファイル1,675件を書き換えず、描画時に足す。
-        if (
-          frontmatter?.explanation_source === 'ai' &&
-          box !== null &&
-          box.querySelector('.kokushi-ai-note') === null
-        ) {
-          ;(box as HTMLElement).createEl('p', {
-            text: '※この解説はAIが作成しています。教科書で確認してください。',
-            cls: 'kokushi-ai-note',
-          })
-        }
+        revealExplanation(plugin.app, questionEl, meta.path)
         // 押し直しで onAnswered が複数回呼ばれても「次へ」が重複しないようにする
-        if (questionEl.querySelector('.kokushi-next-btn') !== null) return
-        const nextBtn = questionEl.createEl('button', {
+        if (nextHost.querySelector('.kokushi-next-btn') !== null) return
+        const nextBtn = nextHost.createEl('button', {
           text: '次へ',
           cls: 'kokushi-btn kokushi-btn-primary kokushi-next-btn',
         })
@@ -128,6 +103,16 @@ export function renderSession(
           void renderCurrentQuestion()
         })
       },
+    })
+
+    const abortBtn = questionEl.createEl('button', {
+      text: '中断して一覧に戻る',
+      cls: 'kokushi-btn kokushi-btn-quiet',
+    })
+    abortBtn.addEventListener('click', () => {
+      renderComponent?.unload()
+      renderComponent = null
+      onExit()
     })
   }
 

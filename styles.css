@@ -64,3 +64,122 @@
 .kokushi-map-row strong {
   color: var(--text-muted);
 }
+
+/* --- 選択肢の行そのものをボタンにする --- */
+.kokushi-choice-row {
+  cursor: pointer;
+  padding: 8px 10px;
+  margin: 4px 0;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 6px;
+  list-style-position: inside;
+  transition: background-color 0.1s ease;
+}
+
+.kokushi-choice-row:hover {
+  background-color: var(--background-modifier-hover);
+}
+
+/* 選択中。複数選択の問題では、これが見えないと何を選んだか分からない */
+li.kokushi-choice-row.kokushi-choice-selected {
+  background-color: var(--interactive-accent) !important;
+  color: var(--text-on-accent) !important;
+  border-color: var(--interactive-accent-hover) !important;
+}
+
+.kokushi-choice-row.kokushi-picked-done {
+  cursor: default;
+}
+
+.kokushi-choice-row.kokushi-picked-done:hover {
+  background-color: transparent;
+}
+
+/* 正誤は記号（⭕❌）で示し、色は補助に留める */
+li.kokushi-choice-row.kokushi-choice-answer {
+  background-color: var(--background-modifier-success) !important;
+  color: var(--text-normal) !important;
+}
+
+li.kokushi-choice-row.kokushi-choice-missed {
+  background-color: var(--background-modifier-error) !important;
+  color: var(--text-normal) !important;
+}
+
+.kokushi-mark {
+  font-weight: 600;
+}
+
+/* --- 何個選ぶかの案内。選択肢の直前に出す --- */
+.kokushi-guide {
+  margin: 8px 0 4px 0;
+  font-weight: 600;
+  color: var(--text-accent);
+}
+
+/* --- 番号ボタン（選択肢リストが見つからなかったときのフォールバック） --- */
+.kokushi-choices {
+  display: flex;
+  gap: 8px;
+  margin: 12px 0;
+  flex-wrap: wrap;
+}
+
+.kokushi-choice {
+  flex: 1 1 60px;
+  min-width: 60px;
+  min-height: 52px;
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.kokushi-choices button.kokushi-choice-selected {
+  background-color: var(--interactive-accent) !important;
+  color: var(--text-on-accent) !important;
+  box-shadow: inset 0 0 0 2px var(--interactive-accent-hover);
+}
+
+.kokushi-choices button.kokushi-choice-answer {
+  background-color: var(--background-modifier-success) !important;
+  color: var(--text-normal) !important;
+  opacity: 1;
+}
+
+.kokushi-choices button.kokushi-choice-missed {
+  background-color: var(--background-modifier-error) !important;
+  color: var(--text-normal) !important;
+  opacity: 1;
+}
+
+/* --- 判定の表示 --- */
+.kokushi-result {
+  margin: 12px 0;
+}
+
+.kokushi-verdict {
+  margin: 8px 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.kokushi-verdict-ok {
+  color: var(--text-success);
+}
+
+.kokushi-verdict-wrong {
+  color: var(--text-error);
+}
+
+.kokushi-btn-quiet {
+  margin-top: 8px;
+  min-height: 36px;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.kokushi-ai-note {
+  margin-top: 12px;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}

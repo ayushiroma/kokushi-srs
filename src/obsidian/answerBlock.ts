@@ -2,6 +2,8 @@ import { Notice, TFile } from 'obsidian'
 import { judge, parseChoiceNumbers } from '../core/choices'
 import { buildStates } from '../core/state'
 import type { Result } from '../core/types'
+import { findChoiceList } from './choiceList'
+import { revealExplanation } from './explanation'
 import type KokushiPlugin from '../main'
 
 const LABELS: ReadonlyArray<{ result: Result; label: string }> = [
@@ -15,6 +17,11 @@ export interface AnswerOptions {
   choices: number[]
   /** frontmatter の answer。空なら番号ボタンを出さない */
   answer: number[]
+  /**
+   * 描画済みの選択肢リストを探す範囲。
+   * 見つかれば行全体をボタンにし、見つからなければ番号ボタンを並べる。
+   */
+  choiceRoot?: HTMLElement | null
   onAnswered?: (result: Result) => void
 }
 
@@ -26,13 +33,15 @@ export function renderAnswerButtons(
 ): void {
   const id = questionId
   const el = container
-  const { choices, answer, onAnswered } = options
+  const { choices, answer, choiceRoot, onAnswered } = options
 
-  const choiceRow = el.createDiv({ cls: 'kokushi-choices' })
-  const verdict = el.createDiv({ cls: 'kokushi-verdict' })
-  const changeArea = el.createDiv({ cls: 'kokushi-change-area' })
-  const reasonArea = el.createDiv({ cls: 'kokushi-reason-area' })
-  const feedback = el.createDiv({ cls: 'kokushi-feedback' })
+  // 判定結果の置き場所。選択肢リストが見つかったらそのすぐ下へ移す。
+  // 押した結果が目に入らない位置（関連知識より下）に出ていたため。
+  const resultHost = el.createDiv({ cls: 'kokushi-result' })
+  const verdict = resultHost.createDiv({ cls: 'kokushi-verdict' })
+  const changeArea = resultHost.createDiv({ cls: 'kokushi-change-area' })
+  const reasonArea = resultHost.createDiv({ cls: 'kokushi-reason-area' })
+  const feedback = resultHost.createDiv({ cls: 'kokushi-feedback' })
 
   // 連打による二重記録を防ぐ。ボタンがDOMから消えるのは非同期I/Oが終わったあとなので、
   // 「消えたかどうか」では守れない。二重記録されると復習アルゴリズムに2回分適用され、
@@ -91,9 +100,11 @@ export function renderAnswerButtons(
     return true
   }
 
-  /** ⭕△❌ボタンを作る。判定後は「記録を直す」ためのボタンとして働く */
-  const buildResultButtons = (host: HTMLElement, withLabel: boolean): void => {
-    if (withLabel) host.createEl('span', { text: '変えるなら', cls: 'kokushi-change-label' })
+  /**
+   * ⭕△❌ボタンを作る。判定後は「記録を直す」ためのボタンとして働く。
+   * 「変えるなら」のようなラベルは付けない（あゆさん判断：見れば分かる）。
+   */
+  const buildResultButtons = (host: HTMLElement): void => {
     const row = host.createDiv({ cls: 'kokushi-buttons' })
     for (const { result, label } of LABELS) {
       const button = row.createEl('button', { text: label, cls: 'kokushi-btn' })
@@ -139,64 +150,107 @@ export function renderAnswerButtons(
 
   // --- フォールバック：選択肢が取れないときは今までどおり⭕△❌だけを出す ---
   if (choices.length === 0 || answer.length === 0) {
-    buildResultButtons(changeArea, false)
+    buildResultButtons(changeArea)
     return
   }
 
-  // --- 番号タップ式 ---
+  // --- 選択肢を押す方式 ---
   const selected = new Set<number>()
-  const choiceButtons = new Map<number, HTMLButtonElement>()
+  /** 番号 → 押せる要素。行全体か、番号ボタンのどちらか */
+  const pickables = new Map<number, HTMLElement>()
   let judged = false
+
+  const list = choiceRoot != null ? findChoiceList(choiceRoot, choices.length) : null
+
+  // 何個選ぶのかは、押す前に見える場所に出す。
+  // 選択肢より下に出していたため「一つしか選べないのか分からない」となっていた。
+  const guide =
+    answer.length > 1 ? createDiv({ cls: 'kokushi-guide' }) : null
+  const updateGuide = (): void => {
+    if (guide === null) return
+    guide.setText(`${answer.length}つ選んでください（${selected.size}つ選択中）`)
+  }
 
   const reveal = (result: Result): void => {
     judged = true
-    for (const [n, btn] of choiceButtons) {
-      btn.disabled = true
+    for (const [n, node] of pickables) {
+      node.addClass('kokushi-picked-done')
+      if (node instanceof HTMLButtonElement) node.disabled = true
       const isAnswer = answer.includes(n)
       const isChosen = selected.has(n)
       // 記号を必ず付ける。色だけだと見分けられない人がいる
       if (isAnswer) {
-        btn.setText(`${n} ⭕`)
-        btn.addClass('kokushi-choice-answer')
+        node.addClass('kokushi-choice-answer')
+        node.createSpan({ text: ' ⭕', cls: 'kokushi-mark' })
       } else if (isChosen) {
-        btn.setText(`${n} ❌`)
-        btn.addClass('kokushi-choice-missed')
+        node.addClass('kokushi-choice-missed')
+        node.createSpan({ text: ' ❌', cls: 'kokushi-mark' })
       }
     }
+    guide?.remove()
     verdict.setText(result === 'ok' ? '記録：⭕ 正解' : '記録：❌ 不正解')
     verdict.addClass(result === 'ok' ? 'kokushi-verdict-ok' : 'kokushi-verdict-wrong')
-    buildResultButtons(changeArea, true)
+    buildResultButtons(changeArea)
     markSelected(result)
   }
 
-  for (const n of choices) {
-    const button = choiceRow.createEl('button', {
-      text: String(n),
-      cls: 'kokushi-btn kokushi-choice',
-    })
-    choiceButtons.set(n, button)
-    button.onclick = () => {
-      if (judged || busy) return
-      // 押し間違えたら押し直して解除できる
-      if (selected.has(n)) {
-        selected.delete(n)
-        button.removeClass('kokushi-choice-selected')
-        return
-      }
-      selected.add(n)
-      button.addClass('kokushi-choice-selected')
-      if (selected.size < answer.length) return
+  const pick = (n: number, node: HTMLElement): void => {
+    if (judged || busy) return
+    // 押し間違えたら押し直して解除できる
+    if (selected.has(n)) {
+      selected.delete(n)
+      node.removeClass('kokushi-choice-selected')
+      updateGuide()
+      return
+    }
+    selected.add(n)
+    node.addClass('kokushi-choice-selected')
+    updateGuide()
+    if (selected.size < answer.length) return
 
-      const chosen = [...selected].sort((a, b) => a - b)
-      const result = judge(chosen, answer)
-      reveal(result)
-      void record(result, { chosen })
+    const chosen = [...selected].sort((a, b) => a - b)
+    const result = judge(chosen, answer)
+    reveal(result)
+    void record(result, { chosen })
+  }
+
+  if (list !== null) {
+    // 描画済みの選択肢リストが見つかった。行全体を押せるようにする。
+    const items = Array.from(list.querySelectorAll(':scope > li'))
+    items.forEach((li, index) => {
+      const n = index + 1
+      const node = li as HTMLElement
+      node.addClass('kokushi-choice-row')
+      node.setAttribute('role', 'button')
+      node.setAttribute('tabindex', '0')
+      pickables.set(n, node)
+      node.onclick = () => pick(n, node)
+      node.onkeydown = (ev: KeyboardEvent) => {
+        if (ev.key !== 'Enter' && ev.key !== ' ') return
+        ev.preventDefault()
+        pick(n, node)
+      }
+    })
+    if (guide !== null) list.insertAdjacentElement('beforebegin', guide)
+    else list.insertAdjacentElement('beforebegin', createDiv({ cls: 'kokushi-guide-spacer' }))
+    // 判定結果を選択肢のすぐ下へ移す
+    list.insertAdjacentElement('afterend', resultHost)
+  } else {
+    // 見つからなかった。従来どおり番号ボタンを並べる。
+    if (guide !== null) el.insertBefore(guide, resultHost)
+    const row = createDiv({ cls: 'kokushi-choices' })
+    el.insertBefore(row, resultHost)
+    for (const n of choices) {
+      const button = row.createEl('button', {
+        text: String(n),
+        cls: 'kokushi-btn kokushi-choice',
+      })
+      pickables.set(n, button)
+      button.onclick = () => pick(n, button)
     }
   }
 
-  if (answer.length > 1) {
-    el.createEl('p', { text: `${answer.length}つ選んでください`, cls: 'kokushi-hint' })
-  }
+  updateGuide()
 }
 
 /** frontmatter の answer を number[] にする。壊れていたら空を返す */
@@ -227,6 +281,21 @@ export function registerAnswerBlock(plugin: KokushiPlugin): void {
       }
     }
 
-    renderAnswerButtons(plugin, id, el, { choices, answer: readAnswer(frontmatter?.answer) })
+    // 単体表示では、選択肢も解説もこのブロックの外側（ノート全体）に描画されている。
+    // 閲覧ビューのコンテナを辿って、その中から探す。
+    const noteRoot = (el.closest('.markdown-preview-view') ??
+      el.closest('.markdown-rendered') ??
+      el.ownerDocument.body) as HTMLElement
+
+    renderAnswerButtons(plugin, id, el, {
+      choices,
+      answer: readAnswer(frontmatter?.answer),
+      choiceRoot: noteRoot,
+      // 単体表示でも解説が自動で開くようにする。
+      // これまで sessionView にしか無く、ノートを直接開いたときは開かなかった。
+      onAnswered: () => {
+        revealExplanation(plugin.app, noteRoot, ctx.sourcePath)
+      },
+    })
   })
 }
