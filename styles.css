@@ -194,10 +194,6 @@ li.kokushi-choice-row.kokushi-choice-missed {
   color: var(--text-success);
 }
 
-.kokushi-verdict-wrong {
-  color: var(--text-error);
-}
-
 .kokushi-btn-quiet {
   margin-top: 8px;
   min-height: 36px;

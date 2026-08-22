@@ -6,10 +6,12 @@ import { findChoiceList } from './choiceList'
 import { revealExplanation } from './explanation'
 import type KokushiPlugin from '../main'
 
+// 記号は絵文字を使わない。⭕❌ は絵文字なので勝手に赤系で描画され、
+// 普通の文字である △ と揃わないうえ、間違えるたびに警告色が出て気が滅入る。
 const LABELS: ReadonlyArray<{ result: Result; label: string }> = [
-  { result: 'ok', label: '⭕ 正解' },
+  { result: 'ok', label: '○ 正解' },
   { result: 'vague', label: '△ 迷った' },
-  { result: 'wrong', label: '❌ 不正解' },
+  { result: 'wrong', label: '× 不正解' },
 ]
 
 export interface AnswerOptions {
@@ -194,7 +196,7 @@ export function renderAnswerButtons(
       if (!isAnswer && !isChosen) marks.remove()
     }
     guide?.remove()
-    verdict.setText(result === 'ok' ? '記録：⭕ 正解' : '記録：❌ 不正解')
+    verdict.setText(result === 'ok' ? '記録：○ 正解' : '記録：× 不正解')
     verdict.addClass(result === 'ok' ? 'kokushi-verdict-ok' : 'kokushi-verdict-wrong')
     buildResultButtons(changeArea)
     markSelected(result)
