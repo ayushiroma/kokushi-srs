@@ -87,19 +87,16 @@ li.kokushi-choice-row.kokushi-choice-selected {
   border-color: var(--interactive-accent-hover) !important;
 }
 
+/* 判定後は押せないので、押せそうな見た目（カーソル・枠線）を消す */
 .kokushi-choice-row.kokushi-picked-done {
   cursor: default;
+  border-top-color: transparent;
+  border-right-color: transparent;
+  border-bottom-color: transparent;
 }
 
 .kokushi-choice-row.kokushi-picked-done:hover {
   background-color: transparent;
-}
-
-/* 判定後は押せないので、押せそうな見た目（枠線）を消す */
-.kokushi-choice-row.kokushi-picked-done {
-  border-top-color: transparent;
-  border-right-color: transparent;
-  border-bottom-color: transparent;
 }
 
 /* 判定後は、左端の線と右端の文字ラベルだけで示す。
@@ -206,4 +203,81 @@ li.kokushi-choice-row.kokushi-choice-missed {
   margin-top: 12px;
   color: var(--text-muted);
   font-size: 0.85rem;
+}
+
+/* --- ホーム --- */
+.kokushi-countdown {
+  color: var(--text-muted);
+  margin-bottom: 12px;
+}
+
+/* 今日の分のカード。ホームで唯一の主役なので、箱として立たせる */
+.kokushi-card {
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 8px;
+  padding: 16px;
+  margin: 12px 0;
+  background-color: var(--background-secondary);
+}
+
+.kokushi-card-title {
+  font-size: 1.2rem;
+  font-weight: 600;
+  margin: 0 0 12px 0;
+}
+
+.kokushi-bar {
+  height: 10px;
+  border-radius: 5px;
+  background-color: var(--background-modifier-border);
+  overflow: hidden;
+  margin-bottom: 12px;
+}
+
+.kokushi-bar-fill {
+  height: 100%;
+  background-color: var(--interactive-accent);
+  transition: width 0.2s ease;
+}
+
+/* 全体の進捗は控えめに。11月から始める人に大きな数字を見せると心が折れる */
+.kokushi-total {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  margin-top: 16px;
+  margin-bottom: 0;
+}
+
+.kokushi-nav {
+  margin-top: 20px;
+  color: var(--text-muted);
+}
+
+/* --- 選ぶUI --- */
+.kokushi-picker {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.kokushi-picker-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.kokushi-picker-item label {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.kokushi-select {
+  min-height: 36px;
+  font-size: 0.95rem;
+}
+
+.kokushi-picker-count {
+  font-weight: 600;
+  margin: 8px 0;
 }

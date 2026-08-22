@@ -197,7 +197,6 @@ export function renderAnswerButtons(
     }
     guide?.remove()
     verdict.setText(result === 'ok' ? '記録：○ 正解' : '記録：× 不正解')
-    verdict.addClass(result === 'ok' ? 'kokushi-verdict-ok' : 'kokushi-verdict-wrong')
     buildResultButtons(changeArea)
     markSelected(result)
   }
