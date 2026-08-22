@@ -9,6 +9,8 @@ export interface KokushiConfig {
   years: number
   showPacing: boolean
   hisshu: HisshuRanges
+  /** 学習ペースを実測できるまで使う1日の問題数。初日から解けるようにするため */
+  defaultCapacity: number
 }
 
 export const DEFAULT_CONFIG: KokushiConfig = {
@@ -17,6 +19,7 @@ export const DEFAULT_CONFIG: KokushiConfig = {
   years: 5,
   showPacing: true,
   hisshu: DEFAULT_HISSHU,
+  defaultCapacity: 10,
 }
 
 /** YYYY-MM-DD の形式かどうか（ゼロ埋めしていない 2027-2-12 は文字列比較を壊すので弾く） */
@@ -68,6 +71,12 @@ export async function loadConfig(app: App): Promise<KokushiConfig> {
       years: typeof raw.years === 'number' ? raw.years : DEFAULT_CONFIG.years,
       showPacing: typeof raw.showPacing === 'boolean' ? raw.showPacing : DEFAULT_CONFIG.showPacing,
       hisshu: isValidHisshu(raw.hisshu) ? raw.hisshu : DEFAULT_CONFIG.hisshu,
+      defaultCapacity:
+        typeof raw.defaultCapacity === 'number' &&
+        Number.isInteger(raw.defaultCapacity) &&
+        raw.defaultCapacity > 0
+          ? raw.defaultCapacity
+          : DEFAULT_CONFIG.defaultCapacity,
     }
   } catch (error) {
     new Notice('国試対策：_config.json を読めませんでした。既定値を使います')

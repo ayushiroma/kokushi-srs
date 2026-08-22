@@ -54,9 +54,14 @@ export function registerTodayBlock(plugin: KokushiPlugin): void {
       const percent = questions.length === 0 ? 0 : Math.round((mastered / questions.length) * 100)
       el.createEl('p', { text: `未着手 ${untouched} ｜ 学習中 ${learning} ｜ 定着 ${mastered}　（${percent}%）` })
 
-      const capacity = measuredCapacity(entries)
-      if (capacity === null) {
-        el.createEl('p', { text: '📊 学習ペースを計測中です。新規問題は「演習.md」から自由に解いてください' })
+      // 実測できるまでは既定値を使う。null のままだと新規問題が1問も出ず、
+      // 初めて使う人は3日間ずっと空っぽの画面を見ることになる。
+      const measured = measuredCapacity(entries)
+      const capacity = measured ?? config.defaultCapacity
+      if (measured === null) {
+        el.createEl('p', {
+          text: `今日の目安：${capacity}問（学習ペースを計測中です。数日使うとあなたに合った数に変わります）`,
+        })
       } else if (config.showPacing) {
         const rate = masteryPerDay(entries, examDate, today)
         const remaining = questions.length - mastered
