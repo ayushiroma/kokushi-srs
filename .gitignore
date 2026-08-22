@@ -4,3 +4,4 @@ main.js
 __pycache__/
 *.pyc
 .worktrees/
+.env
