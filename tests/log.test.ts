@@ -107,3 +107,34 @@ describe('mergeLogs', () => {
     expect(mergeLogs([first, second])).toHaveLength(2)
   })
 })
+
+describe('chosen（選んだ選択肢番号）', () => {
+  it('chosen を読み取る', () => {
+    const line = JSON.stringify({ id: 'q1', at: '2026-08-22T10:00:00Z', result: 'wrong', chosen: [3] })
+    expect(parseLog(line)[0].chosen).toEqual([3])
+  })
+
+  it('複数選んだ場合も読み取る', () => {
+    const line = JSON.stringify({ id: 'q1', at: '2026-08-22T10:00:00Z', result: 'ok', chosen: [4, 5] })
+    expect(parseLog(line)[0].chosen).toEqual([4, 5])
+  })
+
+  it('chosen が無い既存のログもそのまま読める', () => {
+    const line = JSON.stringify({ id: 'q1', at: '2026-08-22T10:00:00Z', result: 'ok' })
+    const entries = parseLog(line)
+    expect(entries).toHaveLength(1)
+    expect(entries[0].chosen).toBeUndefined()
+  })
+
+  it('chosen が壊れていても記録自体は捨てない', () => {
+    const line = JSON.stringify({ id: 'q1', at: '2026-08-22T10:00:00Z', result: 'ok', chosen: 'あ' })
+    const entries = parseLog(line)
+    expect(entries).toHaveLength(1)
+    expect(entries[0].chosen).toBeUndefined()
+  })
+
+  it('chosen を書き出せる', () => {
+    const text = formatEntry({ id: 'q1', at: '2026-08-22T10:00:00Z', result: 'wrong', chosen: [2] })
+    expect(JSON.parse(text).chosen).toEqual([2])
+  })
+})

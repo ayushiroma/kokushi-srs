@@ -5,6 +5,8 @@ export interface ReviewEntry {
   at: string
   result: Result
   reason?: string
+  /** 利用者が選んだ選択肢番号。誤答傾向の分析用。番号タップ式より前のログには無い */
+  chosen?: number[]
 }
 
 export interface QuestionState {
