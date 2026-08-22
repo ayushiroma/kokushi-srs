@@ -1,5 +1,6 @@
 """
-看護師第115回の解説を Anthropic Batch API で一括生成する。
+解説が未生成の問題を Anthropic Batch API で一括生成する。
+explanation_source: none の問題を全件（看護師・保健師とも）対象にする。
 使い方:
   py -3 scripts/explain/generate_batch.py submit   バッチを投げる（.env の ANTHROPIC_API_KEY を使用）
   py -3 scripts/explain/generate_batch.py status <batch_id>   進捗確認
@@ -14,7 +15,7 @@ import sys
 from dotenv import load_dotenv
 import anthropic
 
-ROOT = r"G:\マイドライブ\000_My Obsidian\国試対策\問題\看護師"
+ROOT = r"G:\マイドライブ\000_My Obsidian\国試対策\問題"
 MODEL = "claude-sonnet-5"
 STATE_FILE = os.path.join(os.path.dirname(__file__), "batch_state.json")
 
@@ -94,8 +95,6 @@ def collect_targets():
     for fp in files:
         q = parse_question(fp)
         if q is None:
-            continue
-        if not q["id"].startswith("nurse-115-"):
             continue
         if q["explanation_source"] != "none":
             continue
