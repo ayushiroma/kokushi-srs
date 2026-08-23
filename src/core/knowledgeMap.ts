@@ -97,6 +97,32 @@ export function buildKnowledgeMap(sources: KnowledgeSource[]): ExamGroup[] {
   })
 }
 
+/**
+ * 本体がまだ無いノートを落とす。
+ *
+ * 問題の `knowledge:` には、知識ノートを作らないと決めた概念も入っている
+ * （2026-08-16の決定：1回しか出てこないタグは作らない）。そのまま並べると、
+ * 参照されている1,896件のうち実在するのは474件だけで、残り7割超が
+ * 「押しても空ノートができるだけのリンク」になる。索引として読めないうえ、
+ * 配った友達が空ノートを量産する（2026-08-23のあゆさんとの整理で除外を決定）。
+ *
+ * ノートが在るかどうかの判定は呼び出し側から渡す。core は Vault を知らないため。
+ * 中身が空になった分野・試験は落とす（見出しだけ残っても読む人が困る）。
+ */
+export function filterToExisting(
+  map: ExamGroup[],
+  exists: (name: string) => boolean
+): ExamGroup[] {
+  return map
+    .map((exam) => ({
+      ...exam,
+      groups: exam.groups
+        .map((group) => ({ field: group.field, notes: group.notes.filter(exists) }))
+        .filter((group) => group.notes.length > 0),
+    }))
+    .filter((exam) => exam.groups.length > 0)
+}
+
 /** 知識マップに出てくるノート名の総数（重複を除いた実数） */
 export function countUniqueNotes(map: ExamGroup[]): number {
   const seen = new Set<string>()

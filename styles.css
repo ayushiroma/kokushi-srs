@@ -61,6 +61,29 @@
   line-height: 1.9;
 }
 
+/* 分野は畳んでおく。開きっぱなしだと1行に最大168件のリンクが並び、
+   37分野ぶんの文字の壁になって索引として読めない */
+.kokushi-map-field {
+  border-bottom: 1px solid var(--background-modifier-border);
+  padding: 2px 0;
+}
+
+.kokushi-map-field > summary {
+  cursor: pointer;
+  padding: 6px 2px;
+  font-weight: 600;
+  color: var(--text-normal);
+  list-style-position: inside;
+}
+
+.kokushi-map-field > summary:hover {
+  color: var(--text-accent);
+}
+
+.kokushi-map-field > .kokushi-map-row {
+  padding: 0 2px 8px 1.4em;
+}
+
 .kokushi-map-row strong {
   color: var(--text-muted);
 }
@@ -354,4 +377,12 @@ li.kokushi-choice-row.kokushi-choice-missed {
 
 .kokushi-next-host:empty {
   margin-top: 0;
+}
+
+/* まだ本体が無い知識ノート。押すと空ファイルができてしまうので、
+   リンクではなく普通の文字として出す（2026-08-23） */
+.kokushi-unwritten {
+  color: var(--text-muted);
+  border-bottom: 1px dotted var(--text-faint);
+  cursor: default;
 }

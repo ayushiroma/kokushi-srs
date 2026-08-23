@@ -6,6 +6,14 @@ import { earliestExamDate, loadConfig } from './config'
 import { indexQuestions, type QuestionMeta } from './questionIndex'
 import type KokushiPlugin from '../main'
 
+/**
+ * 条件に合う問題をすべて返す。
+ *
+ * `filter.limit` はここでは使わない。何件出すかは「一覧に何件並べるか」と
+ * 「1回のセッションに何問入れるか」で別々に決めたいので、呼び出し側で切る
+ * （listBlock は表示件数として、pickerBlock はセッションの上限として使う）。
+ * ここで切ると「該当◯問」の件数まで上限に丸まって嘘になる。
+ */
 export async function filterQuestions(
   plugin: KokushiPlugin,
   filter: Filter

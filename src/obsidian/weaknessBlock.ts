@@ -55,7 +55,7 @@ function renderRows(
     const link = nameCell.createEl('a', { text: row.key, href: '#' })
     link.onclick = (ev) => {
       ev.preventDefault()
-      void openInPreview(plugin.app, '国試対策/自分で選んで解く')
+      void openInPreview(plugin.app, '国試対策/画面/自分で選んで解く')
       new Notice(`「自分で選んで解く」で ${filterKey === 'field' ? '分野' : 'トピック'}「${row.key}」を選んで絞り込めます`)
     }
 

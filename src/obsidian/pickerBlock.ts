@@ -6,8 +6,8 @@ import {
   type Selection,
 } from '../core/selection'
 import { RENDER_ERROR } from './messages'
-import { openInPreview } from './openInPreview'
 import { filterQuestions } from './queryQuestions'
+import { renderToggleList } from './questionListView'
 import { renderSession } from './sessionView'
 import type KokushiPlugin from '../main'
 
@@ -78,7 +78,8 @@ export function registerPickerBlock(plugin: KokushiPlugin): void {
           selection = { ...selection, round: v }
         })
 
-        const matched = await filterQuestions(plugin, buildFilterFromSelection(selection))
+        const filter = buildFilterFromSelection(selection)
+        const matched = await filterQuestions(plugin, filter)
 
         el.createEl('p', { text: `該当 ${matched.length}問`, cls: 'kokushi-picker-count' })
 
@@ -92,15 +93,20 @@ export function registerPickerBlock(plugin: KokushiPlugin): void {
 
         const row = el.createDiv({ cls: 'kokushi-buttons' })
 
+        // 1回のセッションに入れる上限。filterQuestions は絞り込むだけで
+        // 件数を切らないので、上限はここで掛ける。
+        // 何問で始まるかはボタンに出す（黙って減らさない）。
+        const sessionCount = Math.min(matched.length, filter.limit)
+
         const practiceBtn = row.createEl('button', {
-          text: '連続で解く',
+          text: `連続で解く（${sessionCount}問）`,
           cls: 'kokushi-btn kokushi-btn-primary',
         })
         practiceBtn.addEventListener('click', () => {
           practiceBtn.disabled = true
           void (async () => {
             try {
-              const questions = await filterQuestions(plugin, buildFilterFromSelection(selection))
+              const questions = (await filterQuestions(plugin, filter)).slice(0, filter.limit)
               if (questions.length === 0) {
                 practiceBtn.disabled = false
                 return
@@ -117,32 +123,14 @@ export function registerPickerBlock(plugin: KokushiPlugin): void {
           })()
         })
 
-        const listBtn = row.createEl('button', { text: '一覧を見る', cls: 'kokushi-btn' })
-        let listEl: HTMLElement | null = null
-        listBtn.addEventListener('click', () => {
-          if (listEl !== null) {
-            listEl.remove()
-            listEl = null
-            listBtn.setText('一覧を見る')
-            return
-          }
-          listBtn.setText('一覧を隠す')
-          const ul = el.createEl('ul')
-          listEl = ul
-          for (const meta of matched.slice(0, LIST_LIMIT)) {
-            const li = ul.createEl('li')
-            const link = li.createEl('a', { text: `${meta.id}　${meta.field}`, href: '#' })
-            link.onclick = (ev) => {
-              ev.preventDefault()
-              void openInPreview(plugin.app, meta.path)
-            }
-          }
-          if (matched.length > LIST_LIMIT) {
-            ul.createEl('li', {
-              text: `…ほか ${matched.length - LIST_LIMIT}問（多いので${LIST_LIMIT}問まで表示しています）`,
-            })
-          }
-        })
+        if (matched.length > sessionCount) {
+          el.createEl('p', {
+            text: `※ 一度に解けるのは ${sessionCount}問までです。条件を絞ると狙ったところから解けます`,
+            cls: 'kokushi-hint',
+          })
+        }
+
+        renderToggleList(plugin, row, el, [{ title: null, metas: matched }], LIST_LIMIT)
       } catch (error) {
         el.empty()
         el.createEl('p', { text: RENDER_ERROR })

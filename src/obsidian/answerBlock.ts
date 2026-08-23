@@ -58,6 +58,10 @@ export function renderAnswerButtons(
   // 実際より早く「定着」扱いになってしまう。
   let busy = false
 
+  // 今このログに入っている結果。同じ結果のボタンを押し直したときに、
+  // 記録し直さずに済ませるための目印。
+  let recorded: Result | null = null
+
   const resultButtons = new Map<Result, HTMLButtonElement>()
 
   const markSelected = (result: Result): void => {
@@ -95,6 +99,7 @@ export function renderAnswerButtons(
 
     // ここから先は記録済み。表示に失敗しても「成功」として扱う（再試行させない）。
     busy = false
+    recorded = result
     markSelected(result)
     try {
       const states = buildStates(await plugin.logStore.readAll())
@@ -122,13 +127,20 @@ export function renderAnswerButtons(
       button.onclick = () => {
         if (busy) return
         reasonArea.empty()
+
+        // 今の記録と同じ結果なら、記録し直さない。
+        // 自動採点の直後は「今の記録」のボタンが光った状態で並ぶため、
+        // 合っていることの確認のつもりで押されやすい。押すたびに追記していると、
+        // 1回しか解いていない問題で streak と復習間隔が二重に進む。
+        const unchanged = recorded === result
+
         if (result !== 'wrong') {
-          void record(result)
+          if (!unchanged) void record(result)
           return
         }
         // ❌に直したときは記録を先に済ませ、メモは任意にする。
         // 入力を必須にすると、友達には手間が離脱の原因になる。
-        void record('wrong')
+        if (!unchanged) void record('wrong')
         const memoBtn = reasonArea.createEl('button', {
           text: 'メモを残す（任意）',
           cls: 'kokushi-btn-quiet',
@@ -144,6 +156,9 @@ export function renderAnswerButtons(
             if (ev.isComposing) return
             if (busy) return
             input.disabled = true
+            // メモは追記でしか残せない（ログは追記専用）ので、ここだけは
+            // 同じ結果でももう1件書く。buildStates が同じ日の記録を
+            // 最後の1件にまとめるので、復習の進み方は二重にならない。
             void record('wrong', { reason: input.value.trim() }).then((ok) => {
               if (ok) {
                 input.remove()
@@ -314,9 +329,13 @@ export function registerAnswerBlock(plugin: KokushiPlugin): void {
 
     // 単体表示では、選択肢も解説もこのブロックの外側（ノート全体）に描画されている。
     // 閲覧ビューのコンテナを辿って、その中から探す。
+    //
+    // document.body までは広げない。広げると、隣のペインに開いた別の問題ノートの
+    // 番号付きリスト（同じ4択なら項目数まで一致してしまう）を選択肢と誤認して、
+    // 別の問題の行にクリックと正誤の印を付けることになる。
+    // 見つからないときは、行を押す方式を諦めて番号ボタンを出すほうが安全。
     const noteRoot = (el.closest('.markdown-preview-view') ??
-      el.closest('.markdown-rendered') ??
-      el.ownerDocument.body) as HTMLElement
+      el.closest('.markdown-rendered')) as HTMLElement | null
 
     renderAnswerButtons(plugin, id, el, {
       choices,
@@ -325,6 +344,7 @@ export function registerAnswerBlock(plugin: KokushiPlugin): void {
       // 単体表示でも解説が自動で開くようにする。
       // これまで sessionView にしか無く、ノートを直接開いたときは開かなかった。
       onAnswered: () => {
+        if (noteRoot === null) return
         revealExplanation(plugin.app, noteRoot, ctx.sourcePath)
       },
     })

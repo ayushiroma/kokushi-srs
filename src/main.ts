@@ -8,7 +8,7 @@ import { LogStore } from './obsidian/logStore'
 import { openInPreview } from './obsidian/openInPreview'
 import { registerPickerBlock } from './obsidian/pickerBlock'
 import { indexQuestions } from './obsidian/questionIndex'
-import { registerTodayBlock } from './obsidian/todayBlock'
+import { registerUnwrittenLinkGuard } from './obsidian/unwrittenLinks'
 import { registerWeaknessBlock } from './obsidian/weaknessBlock'
 
 export default class KokushiPlugin extends Plugin {
@@ -18,11 +18,11 @@ export default class KokushiPlugin extends Plugin {
     this.logStore = new LogStore(this.app)
     registerAnswerBlock(this)
     registerHomeBlock(this)
-    registerTodayBlock(this)
     registerListBlock(this)
     registerPickerBlock(this)
     registerWeaknessBlock(this)
     registerKnowledgeMapBlock(this)
+    registerUnwrittenLinkGuard(this)
 
     // 左端のリボンから必ずホームへ帰れるようにする。
     // ファイルツリーに1,675件並ぶVaultでは、これが唯一の確実な入口になる。

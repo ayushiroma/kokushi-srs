@@ -1,3 +1,4 @@
+import { dateOf } from './date'
 import { applyReview } from './srs'
 import type { QuestionState, Result, ReviewEntry } from './types'
 
@@ -14,9 +15,33 @@ export function latestResults(entries: ReviewEntry[]): Map<string, Result> {
   return latest
 }
 
+/**
+ * 同じ日に同じ問題を何度記録しても、最後の1件だけを残す。
+ *
+ * ⭕△❌は押し直せる設計で、自動採点のあとに押し直せば2件目、
+ * ❌にメモを足せば3件目が追記される。これを1件ずつ復習アルゴリズムに
+ * 通すと、1回しか解いていない問題で streak と復習間隔が2段以上進み、
+ * 実力より早く「覚えた」判定になる。
+ *
+ * 間隔反復は「1日1回」が単位なので、同じ日の記録は最後の1件を正とする。
+ * これは「押し直したら最後の記録が正」という元々の設計そのもの。
+ * ログ自体は消さないので、あとから何をどう直したかは追える。
+ *
+ * 入力は時系列に並んでいる前提（mergeLogs が保証する）。
+ * Mapは同じキーに入れ直しても最初に入った位置を保つので、
+ * 問題ごとに見たときの日付の順番は崩れない。
+ */
+function lastPerDay(entries: ReviewEntry[]): ReviewEntry[] {
+  const byIdAndDay = new Map<string, ReviewEntry>()
+  for (const entry of entries) {
+    byIdAndDay.set(`${entry.id}\t${dateOf(entry.at)}`, entry)
+  }
+  return [...byIdAndDay.values()]
+}
+
 export function buildStates(entries: ReviewEntry[]): Map<string, QuestionState> {
   const states = new Map<string, QuestionState>()
-  for (const entry of entries) {
+  for (const entry of lastPerDay(entries)) {
     states.set(entry.id, applyReview(states.get(entry.id) ?? null, entry))
   }
   return states
