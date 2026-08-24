@@ -1,22 +1,9 @@
-import { buildKnowledgeMap, countUniqueNotes } from '../core/knowledgeMap'
+import { TFile } from 'obsidian'
+import { buildKnowledgeMap, countUniqueNotes, filterToExisting } from '../core/knowledgeMap'
+import { openInPreview } from './openInPreview'
 import { indexQuestions } from './questionIndex'
+import { RENDER_ERROR } from './messages'
 import type KokushiPlugin from '../main'
-
-const KNOWLEDGE_DIR = '国試対策/知識ノート'
-
-/**
- * 知識ノートの中から伸びているのに、本体がまだ無いリンクを集める。
- * 「次に何を書けばいいか」がそのまま出る。
- */
-function collectUnwritten(plugin: KokushiPlugin): string[] {
-  const unresolved = plugin.app.metadataCache.unresolvedLinks
-  const names = new Set<string>()
-  for (const [source, links] of Object.entries(unresolved)) {
-    if (!source.startsWith(`${KNOWLEDGE_DIR}/`)) continue
-    for (const name of Object.keys(links)) names.add(name)
-  }
-  return [...names].sort(new Intl.Collator('ja').compare)
-}
 
 function appendLinks(parent: HTMLElement, names: string[], plugin: KokushiPlugin): void {
   names.forEach((name, i) => {
@@ -24,7 +11,7 @@ function appendLinks(parent: HTMLElement, names: string[], plugin: KokushiPlugin
     const link = parent.createEl('a', { text: name, href: '#' })
     link.onclick = (ev) => {
       ev.preventDefault()
-      void plugin.app.workspace.openLinkText(name, '', false)
+      void openInPreview(plugin.app, name)
     }
   })
 }
@@ -34,37 +21,41 @@ export function registerKnowledgeMapBlock(plugin: KokushiPlugin): void {
     try {
       el.empty()
       const questions = indexQuestions(plugin.app)
-      const map = buildKnowledgeMap(questions)
+
+      // 本体があるノートだけを残す。名前で引けるかどうかで判定しているので、
+      // 知識ノートフォルダを別の場所へ移してもここを直す必要がない。
+      const map = filterToExisting(
+        buildKnowledgeMap(questions),
+        (name) => plugin.app.metadataCache.getFirstLinkpathDest(name, '') instanceof TFile
+      )
 
       if (map.length === 0) {
         el.createEl('p', { text: 'まだ知識ノートに繋がっている問題がありません' })
         return
       }
 
-      const unwritten = collectUnwritten(plugin)
       el.createEl('p', {
-        text: `知識ノート ${countUniqueNotes(map)} 件 ／ まだ書いていない概念 ${unwritten.length} 件`,
+        text: `知識ノート ${countUniqueNotes(map)} 件`,
         cls: 'kokushi-section-title',
+      })
+      el.createEl('p', {
+        text: 'ⓘ 分野を押すと開きます。名前が分かっているノートは Ctrl+O で探すほうが早いです',
+        cls: 'kokushi-hint',
       })
 
       for (const exam of map) {
         el.createEl('p', { text: exam.label, cls: 'kokushi-section-title' })
         for (const group of exam.groups) {
-          const row = el.createEl('div', { cls: 'kokushi-map-row' })
-          row.createEl('strong', { text: group.field })
-          row.createSpan({ text: '　' })
-          appendLinks(row, group.notes, plugin)
+          // 分野は畳んでおく。開きっぱなしだと1行に最大168件のリンクが並び、
+          // 37分野ぶんの文字の壁になって索引として読めなかった（2026-08-23の実測）。
+          const box = el.createEl('details', { cls: 'kokushi-map-field' })
+          box.createEl('summary', { text: `${group.field}（${group.notes.length}）` })
+          appendLinks(box.createDiv({ cls: 'kokushi-map-row' }), group.notes, plugin)
         }
-      }
-
-      if (unwritten.length > 0) {
-        el.createEl('p', { text: 'まだ書いていない概念', cls: 'kokushi-section-title' })
-        const row = el.createEl('div', { cls: 'kokushi-map-row' })
-        appendLinks(row, unwritten, plugin)
       }
     } catch (error) {
       el.empty()
-      el.createEl('p', { text: '⚠️ 表示に失敗しました。開発者ツールのコンソールを確認してください' })
+      el.createEl('p', { text: RENDER_ERROR })
       console.error('kokushi-srs: 知識マップの表示に失敗しました', error)
     }
   })

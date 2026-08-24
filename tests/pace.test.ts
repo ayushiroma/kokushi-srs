@@ -50,6 +50,21 @@ describe('measuredCapacity', () => {
     expect(measuredCapacity(up)).toBe(11)
   })
 
+  it('押し直しやメモで記録が増えても、解いた問題の数で数える', () => {
+    // 毎日10問。うち3問は⭕△❌を押し直して記録が2件ずつになっている。
+    // 件数で数えると13になり、ホームの「今日の分 10/13」が終わらなくなる。
+    const withRedo = (date: string, startId: number): ReviewEntry[] => [
+      ...day(date, 10, startId),
+      ...day(date, 3, startId), // 同じ問題IDの2件目
+    ]
+    const entries = [
+      ...withRedo('2026-08-12', 0),
+      ...withRedo('2026-08-13', 10),
+      ...withRedo('2026-08-14', 20),
+    ]
+    expect(measuredCapacity(entries)).toBe(10)
+  })
+
   it('定数が設計どおり', () => {
     expect(MIN_STUDY_DAYS).toBe(3)
     expect(CAPACITY_WINDOW_DAYS).toBe(7)

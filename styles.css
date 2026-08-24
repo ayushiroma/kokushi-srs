@@ -61,6 +61,328 @@
   line-height: 1.9;
 }
 
+/* 分野は畳んでおく。開きっぱなしだと1行に最大168件のリンクが並び、
+   37分野ぶんの文字の壁になって索引として読めない */
+.kokushi-map-field {
+  border-bottom: 1px solid var(--background-modifier-border);
+  padding: 2px 0;
+}
+
+.kokushi-map-field > summary {
+  cursor: pointer;
+  padding: 6px 2px;
+  font-weight: 600;
+  color: var(--text-normal);
+  list-style-position: inside;
+}
+
+.kokushi-map-field > summary:hover {
+  color: var(--text-accent);
+}
+
+.kokushi-map-field > .kokushi-map-row {
+  padding: 0 2px 8px 1.4em;
+}
+
 .kokushi-map-row strong {
   color: var(--text-muted);
+}
+
+/* --- 選択肢の行そのものをボタンにする --- */
+.kokushi-choice-row {
+  cursor: pointer;
+  padding: 8px 10px;
+  margin: 4px 0;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 6px;
+  list-style-position: inside;
+  transition: background-color 0.1s ease;
+}
+
+.kokushi-choice-row:hover {
+  background-color: var(--background-modifier-hover);
+}
+
+/* 選択中。複数選択の問題では、これが見えないと何を選んだか分からない */
+li.kokushi-choice-row.kokushi-choice-selected {
+  background-color: var(--interactive-accent) !important;
+  color: var(--text-on-accent) !important;
+  border-color: var(--interactive-accent-hover) !important;
+}
+
+/* 判定後は押せないので、押せそうな見た目（カーソル・枠線）を消す */
+.kokushi-choice-row.kokushi-picked-done {
+  cursor: default;
+  border-top-color: transparent;
+  border-right-color: transparent;
+  border-bottom-color: transparent;
+}
+
+.kokushi-choice-row.kokushi-picked-done:hover {
+  background-color: transparent;
+}
+
+/* 判定後は、左端の線と右端の文字ラベルだけで示す。
+   行を全面塗りすると目が疲れるうえ、「正答」と「自分の答え」が
+   どちらも色の面になって区別できなくなる（2026-08-22の実機確認で判明）。 */
+li.kokushi-choice-row.kokushi-choice-answer {
+  border-left: 4px solid var(--text-success);
+}
+
+li.kokushi-choice-row.kokushi-choice-missed {
+  border-left: 4px solid var(--text-error);
+}
+
+.kokushi-marks {
+  float: right;
+  margin-left: 8px;
+  white-space: nowrap;
+}
+
+.kokushi-chip {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 8px;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.6;
+}
+
+/* 「正答」の文字自体が情報なので、色は付けない。
+   テーマによっては --text-success が蛍光緑で、画面がちかちかする
+   （2026-08-22の実機確認で判明）。緑は左端の線だけに残す。 */
+.kokushi-chip-answer {
+  color: var(--text-normal);
+  font-weight: 700;
+}
+
+.kokushi-chip-mine {
+  color: var(--text-muted);
+}
+
+/* --- 何個選ぶかの案内。選択肢の直前に出す --- */
+.kokushi-guide {
+  margin: 8px 0 4px 0;
+  font-weight: 600;
+  color: var(--text-accent);
+}
+
+/* --- 番号ボタン（選択肢リストが見つからなかったときのフォールバック） --- */
+.kokushi-choices {
+  display: flex;
+  gap: 8px;
+  margin: 12px 0;
+  flex-wrap: wrap;
+}
+
+.kokushi-choice {
+  flex: 1 1 60px;
+  min-width: 60px;
+  min-height: 52px;
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.kokushi-choices button.kokushi-choice-selected {
+  background-color: var(--interactive-accent) !important;
+  color: var(--text-on-accent) !important;
+  box-shadow: inset 0 0 0 2px var(--interactive-accent-hover);
+}
+
+.kokushi-choices button.kokushi-choice-answer {
+  background-color: var(--background-modifier-success) !important;
+  color: var(--text-normal) !important;
+  opacity: 1;
+}
+
+.kokushi-choices button.kokushi-choice-missed {
+  background-color: var(--background-modifier-error) !important;
+  color: var(--text-normal) !important;
+  opacity: 1;
+}
+
+/* --- 判定の表示 --- */
+.kokushi-result {
+  margin: 12px 0;
+}
+
+.kokushi-verdict {
+  margin: 8px 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.kokushi-btn-quiet {
+  margin-top: 8px;
+  min-height: 36px;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.kokushi-ai-note {
+  margin-top: 12px;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+/* --- ホーム --- */
+.kokushi-countdown {
+  color: var(--text-muted);
+  margin-bottom: 12px;
+}
+
+/* 今日の分のカード。ホームで唯一の主役なので、箱として立たせる */
+.kokushi-card {
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 8px;
+  padding: 16px;
+  margin: 12px 0;
+  background-color: var(--background-secondary);
+}
+
+.kokushi-card-title {
+  font-size: 1.2rem;
+  font-weight: 600;
+  margin: 0 0 12px 0;
+}
+
+.kokushi-bar {
+  height: 10px;
+  border-radius: 5px;
+  background-color: var(--background-modifier-border);
+  overflow: hidden;
+  margin-bottom: 12px;
+}
+
+.kokushi-bar-fill {
+  height: 100%;
+  background-color: var(--interactive-accent);
+  transition: width 0.2s ease;
+}
+
+/* 全体の進捗は控えめに。11月から始める人に大きな数字を見せると心が折れる */
+.kokushi-total {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  margin-top: 16px;
+  margin-bottom: 0;
+}
+
+.kokushi-nav {
+  margin-top: 20px;
+  color: var(--text-muted);
+}
+
+/* --- 選ぶUI --- */
+.kokushi-picker {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.kokushi-picker-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.kokushi-picker-item label {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.kokushi-select {
+  min-height: 36px;
+  font-size: 0.95rem;
+}
+
+.kokushi-picker-count {
+  font-weight: 600;
+  margin: 8px 0;
+}
+
+/* --- 弱点ページの表 --- */
+/* 表は横に長くなることがあるので、ページ全体ではなく表の中だけを横スクロールさせる */
+.kokushi-table-wrap {
+  overflow-x: auto;
+  margin: 8px 0 16px 0;
+}
+
+.kokushi-table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 0.9rem;
+}
+
+.kokushi-table th {
+  text-align: left;
+  font-weight: 600;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--background-modifier-border);
+  padding: 4px 10px 4px 0;
+  white-space: nowrap;
+}
+
+.kokushi-table td {
+  padding: 4px 10px 4px 0;
+  border-bottom: 1px solid var(--background-modifier-border);
+  vertical-align: middle;
+}
+
+/* 数字は右揃えにする。桁が揃わないと分野同士を見比べられない */
+.kokushi-table th:nth-child(n + 3),
+.kokushi-cell-num {
+  text-align: right;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.kokushi-cell-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 120px;
+}
+
+.kokushi-cell-percent {
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* 表の中に入れるので、ホーム画面のバーより細くする */
+.kokushi-bar-slim {
+  height: 6px;
+  width: 60px;
+  flex: 0 0 60px;
+  margin-bottom: 0;
+}
+
+.kokushi-hisshu {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 4px 0;
+}
+
+/* 「次へ」は判定結果のすぐ下に出す。解説を読み飛ばしたい問題で、
+   長い解説をスクロールし切らないと次へ進めないのを避けるため */
+.kokushi-next-host {
+  margin-top: 12px;
+}
+
+.kokushi-next-host:empty {
+  margin-top: 0;
+}
+
+/* まだ本体が無い知識ノート。押すと空ファイルができてしまうので、
+   リンクではなく普通の文字として出す（2026-08-23） */
+.kokushi-unwritten {
+  color: var(--text-muted);
+  border-bottom: 1px dotted var(--text-faint);
+  cursor: default;
 }

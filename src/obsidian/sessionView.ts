@@ -2,7 +2,9 @@ import { Component, MarkdownRenderer, TFile } from 'obsidian'
 import type KokushiPlugin from '../main'
 import type { QuestionMeta } from './questionIndex'
 import { advance, currentId, isFinished, progress, startSession } from '../core/session'
-import { renderAnswerButtons } from './answerBlock'
+import { parseChoiceNumbers } from '../core/choices'
+import { NEXT_HOST_CLASS, readAnswer, renderAnswerButtons } from './answerBlock'
+import { revealExplanation } from './explanation'
 
 // フェンス前後の空白・タブや \r\n 改行が入っていても除去できるよう寛容にしておく。
 // 万一これでも一致しない場合は、下の残存チェックで console.warn を出す。
@@ -25,6 +27,20 @@ export function renderSession(
   // unload し、新しい短命な Component を発行する。
   let renderComponent: Component | null = null
 
+  /**
+   * 次の問題を描いたら、描画先を画面の上端に合わせる。
+   *
+   * 同じ場所を空にして描き直しているだけなので、スクロール位置は前の問題のまま残る。
+   * 解説まで読み下げてから「次へ」を押すと、次の問題は途中から表示されて
+   * 毎回自分で上に戻すことになる（2026-08-22の実機確認であゆさんから指摘）。
+   *
+   * behavior は指定しない。スムーススクロールにすると問題が切り替わるたびに
+   * 画面が流れて目が疲れる。
+   */
+  const scrollToTop = (): void => {
+    container.scrollIntoView({ block: 'start' })
+  }
+
   const renderCurrentQuestion = async (): Promise<void> => {
     renderComponent?.unload()
     renderComponent = null
@@ -35,6 +51,7 @@ export function renderSession(
       container.createEl('p', { text: `${total}問解きました。` })
       const backBtn = container.createEl('button', { text: '一覧に戻る', cls: 'kokushi-btn' })
       backBtn.addEventListener('click', () => onExit())
+      scrollToTop()
       return
     }
 
@@ -80,37 +97,42 @@ export function renderSession(
       return
     }
 
-    questionEl.createEl('p', {
-      text: '↑「解説を開く」で正解を確認してから記録してください',
-      cls: 'kokushi-hint',
+    const buttonHost = questionEl.createDiv()
+    const nextHost = questionEl.createDiv()
+
+    const frontmatter = plugin.app.metadataCache.getCache(meta.path)?.frontmatter
+    renderAnswerButtons(plugin, id!, buttonHost, {
+      choices: parseChoiceNumbers(raw),
+      answer: readAnswer(frontmatter?.answer),
+      choiceRoot: questionEl,
+      onAnswered: () => {
+        revealExplanation(plugin.app, questionEl, meta.path)
+        // 「次へ」は判定結果のすぐ下（解説より上）に置く。
+        // answerBlock が用意した置き場所を使う。見つからないときだけ従来の位置に置く。
+        const host = (questionEl.querySelector(`.${NEXT_HOST_CLASS}`) as HTMLElement | null) ?? nextHost
+        // 押し直しで onAnswered が複数回呼ばれても「次へ」が重複しないようにする
+        if (questionEl.querySelector('.kokushi-next-btn') !== null) return
+        const nextBtn = host.createEl('button', {
+          text: '次へ',
+          cls: 'kokushi-btn kokushi-btn-primary kokushi-next-btn',
+        })
+        nextBtn.addEventListener('click', () => {
+          state = advance(state)
+          void renderCurrentQuestion()
+        })
+      },
     })
 
-    const abortBtn = questionEl.createEl('button', { text: '中断して一覧に戻る', cls: 'kokushi-btn' })
+    const abortBtn = questionEl.createEl('button', {
+      text: '中断して一覧に戻る',
+      cls: 'kokushi-btn kokushi-btn-quiet',
+    })
     abortBtn.addEventListener('click', () => {
       renderComponent?.unload()
       renderComponent = null
       onExit()
     })
-
-    const buttonHost = questionEl.createDiv()
-    // 「次へ」はbuttonHostのすぐ下に置く。containerの末尾（解説展開後の一番下）に
-    // 置くと、解説が長い問題でボタン群から遠く離れてしまい見つけにくくなるため。
-    renderAnswerButtons(plugin, id!, buttonHost, () => {
-      const box = questionEl.querySelector('.callout[data-callout="解説"]')
-      if (box?.classList.contains('is-collapsed')) {
-        ;(box.querySelector('.callout-title') as HTMLElement)?.click()
-      }
-      // 押し直しで onAnswered が複数回呼ばれても「次へ」が重複しないようにする
-      if (questionEl.querySelector('.kokushi-next-btn') !== null) return
-      const nextBtn = questionEl.createEl('button', {
-        text: '次へ',
-        cls: 'kokushi-btn kokushi-btn-primary kokushi-next-btn',
-      })
-      nextBtn.addEventListener('click', () => {
-        state = advance(state)
-        void renderCurrentQuestion()
-      })
-    })
+    scrollToTop()
   }
 
   const addRecoveryButtons = (host: HTMLElement): void => {

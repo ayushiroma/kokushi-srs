@@ -1,11 +1,14 @@
 import { Notice, Plugin } from 'obsidian'
 import { registerAnswerBlock } from './obsidian/answerBlock'
 import { earliestExamDate, loadConfig } from './obsidian/config'
+import { registerHomeBlock } from './obsidian/homeBlock'
 import { registerKnowledgeMapBlock } from './obsidian/knowledgeMapBlock'
 import { registerListBlock } from './obsidian/listBlock'
 import { LogStore } from './obsidian/logStore'
+import { openInPreview } from './obsidian/openInPreview'
+import { registerPickerBlock } from './obsidian/pickerBlock'
 import { indexQuestions } from './obsidian/questionIndex'
-import { registerTodayBlock } from './obsidian/todayBlock'
+import { registerUnwrittenLinkGuard } from './obsidian/unwrittenLinks'
 import { registerWeaknessBlock } from './obsidian/weaknessBlock'
 
 export default class KokushiPlugin extends Plugin {
@@ -14,10 +17,26 @@ export default class KokushiPlugin extends Plugin {
   override async onload(): Promise<void> {
     this.logStore = new LogStore(this.app)
     registerAnswerBlock(this)
-    registerTodayBlock(this)
+    registerHomeBlock(this)
     registerListBlock(this)
+    registerPickerBlock(this)
     registerWeaknessBlock(this)
     registerKnowledgeMapBlock(this)
+    registerUnwrittenLinkGuard(this)
+
+    // 左端のリボンから必ずホームへ帰れるようにする。
+    // ファイルツリーに1,675件並ぶVaultでは、これが唯一の確実な入口になる。
+    this.addRibbonIcon('graduation-cap', '国試対策', () => {
+      void openInPreview(this.app, '国試対策/ホーム')
+    })
+
+    this.addCommand({
+      id: 'kokushi-open-home',
+      name: 'ホームを開く',
+      callback: () => {
+        void openInPreview(this.app, '国試対策/ホーム')
+      },
+    })
 
     this.addCommand({
       id: 'kokushi-debug-index',

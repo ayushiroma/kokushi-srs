@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   buildKnowledgeMap,
   countUniqueNotes,
+  filterToExisting,
   parseWikiLink,
   type KnowledgeSource,
 } from '../src/core/knowledgeMap'
@@ -116,5 +117,44 @@ describe('countUniqueNotes', () => {
 
   it('空なら0', () => {
     expect(countUniqueNotes([])).toBe(0)
+  })
+})
+
+describe('filterToExisting', () => {
+  const map = buildKnowledgeMap([
+    { exam: 'nurse', field: '循環器', knowledge: ['[[心不全]]', '[[未作成A]]'] },
+    { exam: 'nurse', field: '呼吸器', knowledge: ['[[未作成B]]'] },
+    { exam: 'phn', field: '疫学', knowledge: ['[[有病率]]'] },
+  ])
+  const exists = (name: string): boolean => ['心不全', '有病率'].includes(name)
+
+  it('本体が無いノートを落とす', () => {
+    const kept = filterToExisting(map, exists)
+    const nurse = kept.find((e) => e.exam === 'nurse')!
+    expect(nurse.groups.find((g) => g.field === '循環器')!.notes).toEqual(['心不全'])
+  })
+
+  it('中身が空になった分野は落とす', () => {
+    const kept = filterToExisting(map, exists)
+    const nurse = kept.find((e) => e.exam === 'nurse')!
+    expect(nurse.groups.map((g) => g.field)).toEqual(['循環器'])
+  })
+
+  it('中身が空になった試験ごと落とす', () => {
+    const kept = filterToExisting(map, (name) => name === '有病率')
+    expect(kept.map((e) => e.exam)).toEqual(['phn'])
+  })
+
+  it('全部残る場合は元と同じ内容', () => {
+    expect(filterToExisting(map, () => true)).toEqual(map)
+  })
+
+  it('全部落ちたら空', () => {
+    expect(filterToExisting(map, () => false)).toEqual([])
+  })
+
+  it('件数は本体があるものだけで数える', () => {
+    expect(countUniqueNotes(map)).toBe(4)
+    expect(countUniqueNotes(filterToExisting(map, exists))).toBe(2)
   })
 })
