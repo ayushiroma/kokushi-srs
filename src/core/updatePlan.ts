@@ -15,7 +15,12 @@ export function classifyDataEntry(zipPath: string): DataEntryAction {
   if (zipPath.startsWith('知識ノート/') && zipPath.endsWith('.md')) {
     return { kind: 'knowledge-note', vaultPath: `${DATA_ROOT}/${zipPath}` }
   }
-  if (zipPath.startsWith('問題/') || zipPath === '_config.json') {
+  if (zipPath === '_config.json') {
+    // _config.json は「中身」フォルダの外、Vaultルート直下にある
+    // （src/obsidian/config.ts の CONFIG_PATH = '国試対策/_config.json' と同じ階層）
+    return { kind: 'overwrite', vaultPath: '国試対策/_config.json' }
+  }
+  if (zipPath.startsWith('問題/')) {
     return { kind: 'overwrite', vaultPath: `${DATA_ROOT}/${zipPath}` }
   }
   return { kind: 'skip' } // 想定外のエントリは安全側に倒して無視する

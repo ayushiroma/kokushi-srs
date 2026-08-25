@@ -9,10 +9,10 @@ describe('classifyDataEntry', () => {
     })
   })
 
-  it('_config.jsonは上書き対象', () => {
+  it('_config.jsonは上書き対象（「中身」フォルダの外、Vaultルート直下）', () => {
     expect(classifyDataEntry('_config.json')).toEqual({
       kind: 'overwrite',
-      vaultPath: '国試対策/中身/_config.json',
+      vaultPath: '国試対策/_config.json',
     })
   })
 

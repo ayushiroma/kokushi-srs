@@ -60,7 +60,9 @@ async function main() {
   const files = {}
   await collectFiles(path.join(vaultDir, '問題'), '問題', files)
   await collectFiles(path.join(vaultDir, '知識ノート'), '知識ノート', files)
-  files['_config.json'] = new Uint8Array(await readFile(path.join(vaultDir, '_config.json')))
+  // _config.json は vaultDir（Vault内の「中身」フォルダ）の1つ上の階層にある
+  // （src/obsidian/config.ts の CONFIG_PATH = '国試対策/_config.json' と同じ階層）
+  files['_config.json'] = new Uint8Array(await readFile(path.join(vaultDir, '..', '_config.json')))
   const zipped = zipSync(files)
   await writeFile('data.zip', zipped)
   console.log(`   data.zip を作成しました（${Object.keys(files).length}ファイル）`)
