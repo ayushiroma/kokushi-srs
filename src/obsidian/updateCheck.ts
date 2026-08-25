@@ -22,7 +22,8 @@ function isAssetLike(value: unknown): value is { name: string; browser_download_
 
 /**
  * 最新リリースを確認する。ネットワークエラーや想定外のレスポンスは
- * 静かに失敗させ、次にホームを開いたときに再試行させる（友達を止めないため）。
+ * 静かに失敗させる（友達を止めないため）。`plugin.updateChecked` フラグが
+ * Obsidianを再起動するまでtrueのままなので、再試行はObsidianを再起動するまで行われない。
  */
 export async function checkForUpdate(currentVersion: string): Promise<UpdateInfo | null> {
   try {

@@ -23,4 +23,12 @@ describe('mergeKnowledgeNote', () => {
     const updated = mergeKnowledgeNote('# 糖尿病\n\n新しい本文だけ\n', existing)
     expect(updated).toBe('# 糖尿病\n\n新しい本文だけ\n\n## メモ\n友達が書いたメモ\n')
   })
+
+  it('##メモは常に最後のセクションとみなし、それ以降の内容も丸ごとメモとして保持する', () => {
+    const existing = '# 糖尿病\n\n古い本文\n\n## メモ\n友達が書いたメモ\n\n## 更に別の見出し\n続きの文章\n'
+    const updated = mergeKnowledgeNote('# 糖尿病\n\n新しい本文\n', existing)
+    expect(updated).toBe(
+      '# 糖尿病\n\n新しい本文\n\n## メモ\n友達が書いたメモ\n\n## 更に別の見出し\n続きの文章\n'
+    )
+  })
 })

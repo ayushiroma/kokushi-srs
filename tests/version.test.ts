@@ -19,6 +19,10 @@ describe('isNewerVersion', () => {
     expect(isNewerVersion('v1.2.3', 'v1.2.3')).toBe(false)
   })
 
+  it('2桁以上のバージョン番号は数値として比較する（文字列比較ではない）', () => {
+    expect(isNewerVersion('1.9.0', '1.10.0')).toBe(true)
+  })
+
   it('壊れた文字列はfalse扱い（更新に見せない）', () => {
     expect(isNewerVersion('1.2.3', 'not-a-version')).toBe(false)
     expect(isNewerVersion('not-a-version', '1.2.3')).toBe(false)
