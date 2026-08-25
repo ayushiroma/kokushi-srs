@@ -1,6 +1,6 @@
 {
   "name": "kokushi-srs",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "看護師・保健師国家試験の学習管理プラグイン",
   "type": "module",
   "scripts": {
