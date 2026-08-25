@@ -9,10 +9,13 @@ import { openInPreview } from './obsidian/openInPreview'
 import { registerPickerBlock } from './obsidian/pickerBlock'
 import { indexQuestions } from './obsidian/questionIndex'
 import { registerUnwrittenLinkGuard } from './obsidian/unwrittenLinks'
+import type { UpdateInfo } from './obsidian/updateCheck'
 import { registerWeaknessBlock } from './obsidian/weaknessBlock'
 
 export default class KokushiPlugin extends Plugin {
   logStore!: LogStore
+  updateChecked = false
+  updateInfo: UpdateInfo | null = null
 
   override async onload(): Promise<void> {
     this.logStore = new LogStore(this.app)

@@ -386,3 +386,10 @@ li.kokushi-choice-row.kokushi-choice-missed {
   border-bottom: 1px dotted var(--text-faint);
   cursor: default;
 }
+
+.kokushi-update-banner {
+  background-color: var(--background-modifier-success);
+  border-radius: 6px;
+  padding: 8px 12px;
+  margin-bottom: 12px;
+}
