@@ -305,6 +305,23 @@ li.kokushi-choice-row.kokushi-choice-missed {
   margin: 8px 0;
 }
 
+/* ラベル無しの選択項目と横に並べるので、select群と足並みが揃うよう下端に揃える。
+   `.kokushi-btn` の `flex: 1 1 auto` のままだと余白いっぱいに伸びて目立ちすぎるので、
+   ここだけ内容サイズに戻す。 */
+.kokushi-picker-clear {
+  flex: 0 0 auto;
+  align-self: flex-end;
+  min-width: auto;
+  min-height: auto;
+  padding: 6px 14px;
+  font-size: 0.85rem;
+}
+
+.kokushi-picker-clear:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
 /* --- 弱点ページの表 --- */
 /* 表は横に長くなることがあるので、ページ全体ではなく表の中だけを横スクロールさせる */
 .kokushi-table-wrap {
