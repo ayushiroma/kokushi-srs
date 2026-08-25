@@ -11,6 +11,8 @@ import { openInPreview } from './openInPreview'
 import { indexQuestions } from './questionIndex'
 import { renderToggleList } from './questionListView'
 import { renderSession } from './sessionView'
+import { checkForUpdate } from './updateCheck'
+import { applyUpdate, downloadUpdateAssets } from './updateApply'
 import type KokushiPlugin from '../main'
 
 const LINKS: ReadonlyArray<{ label: string; path: string }> = [
@@ -37,6 +39,39 @@ export function registerHomeBlock(plugin: KokushiPlugin): void {
     const render = async (): Promise<void> => {
       try {
         el.empty()
+
+        if (!plugin.updateChecked) {
+          plugin.updateChecked = true
+          plugin.updateInfo = await checkForUpdate(plugin.manifest.version)
+        }
+        if (plugin.updateInfo) {
+          const info = plugin.updateInfo
+          const banner = el.createDiv({ cls: 'kokushi-update-banner' })
+          banner.createEl('p', {
+            text: `更新があります（v${info.currentVersion} → ${info.latestVersion}）`,
+          })
+          const updateBtn = banner.createEl('button', { text: '今すぐ更新', cls: 'kokushi-btn' })
+          const updateNotice = banner.createDiv({ cls: 'kokushi-hint' })
+          updateBtn.addEventListener('click', () => {
+            updateBtn.disabled = true
+            updateNotice.setText('更新しています…')
+            void (async () => {
+              try {
+                const assets = await downloadUpdateAssets(info)
+                const pluginDir = plugin.manifest.dir
+                if (!pluginDir) throw new Error('プラグインの保存先が分かりませんでした')
+                await applyUpdate(plugin.app.vault.adapter, pluginDir, assets)
+                plugin.updateInfo = null
+                updateNotice.setText('更新しました。Obsidianを再読み込みしてください')
+              } catch (error) {
+                updateNotice.setText('更新に失敗しました。しばらくしてからもう一度お試しください')
+                updateBtn.disabled = false
+                console.error('kokushi-srs: 更新の適用に失敗しました', error)
+              }
+            })()
+          })
+        }
+
         const config = await loadConfig(plugin.app)
         const examDate = earliestExamDate(config)
         const today = toDateString(new Date())
