@@ -11,8 +11,8 @@ import { openInPreview } from './openInPreview'
 import { indexQuestions } from './questionIndex'
 import { renderToggleList } from './questionListView'
 import { renderSession } from './sessionView'
-import { checkForUpdate } from './updateCheck'
 import { applyUpdate, downloadUpdateAssets } from './updateApply'
+import { checkForUpdate } from './updateCheck'
 import type KokushiPlugin from '../main'
 
 const LINKS: ReadonlyArray<{ label: string; path: string }> = [
@@ -36,17 +36,20 @@ export function registerHomeBlock(plugin: KokushiPlugin): void {
       })
     }
 
-    const render = async (): Promise<void> => {
-      try {
-        el.empty()
-
-        if (!plugin.updateChecked) {
-          plugin.updateChecked = true
-          plugin.updateInfo = await checkForUpdate(plugin.manifest.version)
-        }
-        if (plugin.updateInfo) {
+    // 更新チェック・バナーの描画を独立させ、ホーム本体（今日の分・カウントダウン等）の
+    // 表示をブロックしないようにする。ネットワークが遅くても、ホームの唯一の確実な入口が
+    // 固まって見えないようにするため（bannerPlaceholderへ結果が来たら後から差し込む）。
+    const renderUpdateBanner = (bannerPlaceholder: HTMLElement): void => {
+      void (async () => {
+        try {
+          if (!plugin.updateChecked) {
+            plugin.updateChecked = true
+            plugin.updateInfo = await checkForUpdate(plugin.manifest.version)
+          }
+          if (!plugin.updateInfo) return
           const info = plugin.updateInfo
-          const banner = el.createDiv({ cls: 'kokushi-update-banner' })
+          bannerPlaceholder.empty()
+          const banner = bannerPlaceholder.createDiv({ cls: 'kokushi-update-banner' })
           banner.createEl('p', {
             text: `更新があります（v${info.currentVersion} → ${info.latestVersion}）`,
           })
@@ -70,7 +73,19 @@ export function registerHomeBlock(plugin: KokushiPlugin): void {
               }
             })()
           })
+        } catch (error) {
+          // バナーの描画に失敗しても、ホーム全体をRENDER_ERRORへ道連れにしない。
+          console.error('kokushi-srs: 更新バナーの表示に失敗しました', error)
         }
+      })()
+    }
+
+    const render = async (): Promise<void> => {
+      try {
+        el.empty()
+
+        const bannerPlaceholder = el.createDiv()
+        renderUpdateBanner(bannerPlaceholder)
 
         const config = await loadConfig(plugin.app)
         const examDate = earliestExamDate(config)
