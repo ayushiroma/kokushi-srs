@@ -16,10 +16,10 @@ import { checkForUpdate } from './updateCheck'
 import type KokushiPlugin from '../main'
 
 const LINKS: ReadonlyArray<{ label: string; path: string }> = [
-  { label: '自分で選んで解く', path: '国試対策/画面/自分で選んで解く' },
-  { label: '弱点', path: '国試対策/画面/弱点' },
-  { label: '知識マップ', path: '国試対策/画面/知識マップ' },
-  { label: '使い方', path: '国試対策/画面/使い方' },
+  { label: '絞り込んで解く', path: '国試対策/メニュー/絞り込んで解く' },
+  { label: '得意・苦手', path: '国試対策/メニュー/得意・苦手' },
+  { label: 'ノート一覧', path: '国試対策/メニュー/ノート一覧' },
+  { label: '使い方', path: '国試対策/メニュー/使い方' },
 ]
 
 export function registerHomeBlock(plugin: KokushiPlugin): void {
@@ -168,7 +168,7 @@ export function registerHomeBlock(plugin: KokushiPlugin): void {
               })
               const metas = [...fresh.due, ...fresh.fresh].flatMap((id) => byId.get(id) ?? [])
               if (metas.length === 0) {
-                notice.setText('今日出す問題がありません。「自分で選んで解く」から選んでください')
+                notice.setText('今日出す問題がありません。「絞り込んで解く」から選んでください')
                 startBtn.disabled = false
                 return
               }

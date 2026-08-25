@@ -4,9 +4,9 @@ import { isKokushiNote } from '../src/core/vaultPaths'
 describe('isKokushiNote', () => {
   it('国試対策の中のノートを見分ける', () => {
     expect(isKokushiNote('国試対策/ホーム.md')).toBe(true)
-    expect(isKokushiNote('国試対策/画面/使い方.md')).toBe(true)
-    expect(isKokushiNote('国試対策/中身/問題/看護師/01_基礎看護学/nurse-115-am-001.md')).toBe(true)
-    expect(isKokushiNote('国試対策/中身/知識ノート/糖尿病.md')).toBe(true)
+    expect(isKokushiNote('国試対策/メニュー/使い方.md')).toBe(true)
+    expect(isKokushiNote('国試対策/データ/問題/看護師/01_基礎看護学/nurse-115-am-001.md')).toBe(true)
+    expect(isKokushiNote('国試対策/データ/知識ノート/糖尿病.md')).toBe(true)
   })
 
   it('国試対策の外は対象にしない（押して新規作成できる標準の動きを奪わないため）', () => {

@@ -1,6 +1,6 @@
 import type { App } from 'obsidian'
 
-const QUESTIONS_DIR = '国試対策/中身/問題'
+const QUESTIONS_DIR = '国試対策/データ/問題'
 
 export interface QuestionMeta {
   id: string
