@@ -82,7 +82,7 @@ async function main() {
         '--notes',
         `v${newVersion} の更新`,
       ],
-      { stdio: 'inherit', shell: true }
+      { stdio: 'inherit' }
     )
   } catch (error) {
     if (error.code === 'ENOENT') {
