@@ -37,10 +37,18 @@ async function collectFiles(baseDir, relPrefix, out) {
 }
 
 async function main() {
-  console.log('1/5 プラグインをビルドしています…')
+  console.log('1/6 問題データを検査しています…')
+  // 壊れたデータをリリースしないための関所。落ちたらここで止まる。
+  // 検査の中身は scripts/extract/vault_check.py を参照。
+  execFileSync('py', ['-3', path.join(import.meta.dirname, 'extract/vault_check.py')], {
+    stdio: 'inherit',
+    env: { ...process.env, PYTHONUTF8: '1' },
+  })
+
+  console.log('2/6 プラグインをビルドしています…')
   execFileSync('npm', ['run', 'build'], { stdio: 'inherit', shell: true })
 
-  console.log('2/5 バージョンを上げています…')
+  console.log('3/6 バージョンを上げています…')
   const manifest = JSON.parse(await readFile('manifest.json', 'utf-8'))
   const pkg = JSON.parse(await readFile('package.json', 'utf-8'))
   const newVersion = bumpVersion(manifest.version, PART)
@@ -50,7 +58,7 @@ async function main() {
   await writeFile('package.json', `${JSON.stringify(pkg, null, 2)}\n`)
   console.log(`   v${newVersion} に更新しました`)
 
-  console.log('3/5 問題データをZIP化しています…')
+  console.log('4/6 問題データをZIP化しています…')
   const vaultDir = process.env.KOKUSHI_VAULT_DIR ?? 'G:\\マイドライブ\\000_My Obsidian\\国試対策\\データ'
   try {
     await stat(vaultDir)
@@ -60,14 +68,18 @@ async function main() {
   const files = {}
   await collectFiles(path.join(vaultDir, '問題'), '問題', files)
   await collectFiles(path.join(vaultDir, '知識ノート'), '知識ノート', files)
-  // _config.json は vaultDir（Vault内の「中身」フォルダ）の1つ上の階層にある
+  // 図（グラフのSVG）も必ず入れる。問題ノートが ![[〜.svg]] で埋め込んでいるので、
+  // これを落とすと自動更新した友達の画面でグラフが表示されなくなる。
+  // 2026-08-27まで入れ忘れており、初回配布ZIPにしか入っていなかった。
+  await collectFiles(path.join(vaultDir, '図'), '図', files)
+  // _config.json は vaultDir（Vault内の「データ」フォルダ）の1つ上の階層にある
   // （src/obsidian/config.ts の CONFIG_PATH = '国試対策/_config.json' と同じ階層）
   files['_config.json'] = new Uint8Array(await readFile(path.join(vaultDir, '..', '_config.json')))
   const zipped = zipSync(files)
   await writeFile('data.zip', zipped)
   console.log(`   data.zip を作成しました（${Object.keys(files).length}ファイル）`)
 
-  console.log('4/5 GitHub Releaseを作成しています…')
+  console.log('5/6 GitHub Releaseを作成しています…')
   try {
     execFileSync(
       'gh',
@@ -95,7 +107,12 @@ async function main() {
     throw error
   }
 
-  console.log('5/5 後片付けをしています…')
+  console.log('6/6 友達に渡す配布ZIPを作っています…')
+  // リリースと配布ZIPは同じ材料から作らないとズレる。
+  // 2026-08-27に「リリースだけ新しくて配布ZIPが古い」が実際に起きたので、
+  // 必ずここで一緒に作る。検査とビルドは済んでいるので飛ばす。
+  execFileSync('node', [path.join(import.meta.dirname, 'package.mjs'), '--skip-check'], { stdio: 'inherit' })
+
   await rm('data.zip')
 
   console.log(`完了しました: v${newVersion}`)

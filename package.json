@@ -9,7 +9,9 @@
     "release": "node scripts/release.mjs",
     "test": "tsc --noEmit && vitest run",
     "typecheck": "tsc --noEmit",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "package": "node scripts/package.mjs",
+    "check": "py -3 scripts/extract/vault_check.py"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
