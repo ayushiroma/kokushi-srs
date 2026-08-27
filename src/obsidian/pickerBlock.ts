@@ -78,6 +78,18 @@ export function registerPickerBlock(plugin: KokushiPlugin): void {
           selection = { ...selection, round: v }
         })
 
+        const isEmpty = Object.values(selection).every((v) => v === '')
+        const clearBtn = controls.createEl('button', {
+          text: 'クリア',
+          cls: 'kokushi-btn kokushi-picker-clear',
+        })
+        clearBtn.disabled = isEmpty
+        clearBtn.addEventListener('click', () => {
+          selection = { ...EMPTY_SELECTION }
+          void plugin.saveData({ ...saved, selection })
+          void render()
+        })
+
         const filter = buildFilterFromSelection(selection)
         const matched = await filterQuestions(plugin, filter)
 

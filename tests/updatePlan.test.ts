@@ -5,11 +5,11 @@ describe('classifyDataEntry', () => {
   it('問題は上書き対象', () => {
     expect(classifyDataEntry('問題/看護師/01_基礎看護学/nurse-115-am-001.md')).toEqual({
       kind: 'overwrite',
-      vaultPath: '国試対策/中身/問題/看護師/01_基礎看護学/nurse-115-am-001.md',
+      vaultPath: '国試対策/データ/問題/看護師/01_基礎看護学/nurse-115-am-001.md',
     })
   })
 
-  it('_config.jsonは上書き対象（「中身」フォルダの外、Vaultルート直下）', () => {
+  it('_config.jsonは上書き対象（「データ」フォルダの外、Vaultルート直下）', () => {
     expect(classifyDataEntry('_config.json')).toEqual({
       kind: 'overwrite',
       vaultPath: '国試対策/_config.json',
@@ -19,7 +19,7 @@ describe('classifyDataEntry', () => {
   it('知識ノートはメモ保護つきで扱う', () => {
     expect(classifyDataEntry('知識ノート/糖尿病.md')).toEqual({
       kind: 'knowledge-note',
-      vaultPath: '国試対策/中身/知識ノート/糖尿病.md',
+      vaultPath: '国試対策/データ/知識ノート/糖尿病.md',
     })
   })
 

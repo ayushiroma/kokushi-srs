@@ -1,6 +1,7 @@
 import { Notice } from 'obsidian'
 import { toDateString } from '../core/date'
 import { parseFilter } from '../core/filter'
+import { FILTER_KEY_LABELS, formatFilterValue } from '../core/labels'
 import { filterQuestions } from './queryQuestions'
 import type { QuestionMeta } from './questionIndex'
 import { renderToggleList } from './questionListView'
@@ -25,7 +26,10 @@ export function registerListBlock(plugin: KokushiPlugin): void {
 
         const conditions = Object.entries(filter)
           .filter(([key]) => key !== 'limit' && key !== 'unknownKeys')
-          .map(([key, value]) => `${key}=${String(value)}`)
+          .map(
+            ([key, value]) =>
+              `${FILTER_KEY_LABELS[key] ?? key}：${formatFilterValue(key, String(value))}`
+          )
           .join(' ｜ ')
 
         el.createEl('p', {

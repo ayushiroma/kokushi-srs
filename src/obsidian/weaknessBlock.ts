@@ -1,5 +1,6 @@
 import { Notice } from 'obsidian'
 import { parseIntField } from '../core/filter'
+import { examLabel, presentExams } from '../core/fields'
 import { aggregateWeakness, type WeaknessRow } from '../core/weakness'
 import { HISSHU_PASS_RATE, isHisshu, scoreHisshu, type HisshuRanges } from '../core/hisshu'
 import { buildStates, latestResults } from '../core/state'
@@ -55,8 +56,8 @@ function renderRows(
     const link = nameCell.createEl('a', { text: row.key, href: '#' })
     link.onclick = (ev) => {
       ev.preventDefault()
-      void openInPreview(plugin.app, '国試対策/画面/自分で選んで解く')
-      new Notice(`「自分で選んで解く」で ${filterKey === 'field' ? '分野' : 'トピック'}「${row.key}」を選んで絞り込めます`)
+      void openInPreview(plugin.app, '国試対策/メニュー/絞り込んで解く')
+      new Notice(`「絞り込んで解く」で ${filterKey === 'field' ? '分野' : 'トピック'}「${row.key}」を選んで絞り込めます`)
     }
 
     const barCell = tr.createEl('td', { cls: 'kokushi-cell-bar' })
@@ -123,26 +124,58 @@ export function registerWeaknessBlock(plugin: KokushiPlugin): void {
         return
       }
 
-      renderHisshu(el, questions, entries, config.hisshu)
+      const exams = presentExams(questions.map((q) => q.exam))
+      if (exams.length === 0) {
+        el.createEl('p', { text: '問題ノートがありません' })
+        return
+      }
 
-      el.createEl('p', { text: '分野別（全体像）', cls: 'kokushi-section-title' })
-      renderRows(
-        el,
-        aggregateWeakness(questions.map((q) => ({ key: q.field, id: q.id })), states, examDate),
-        plugin,
-        'field',
-      )
+      const controls = el.createDiv({ cls: 'kokushi-picker' })
+      const selectWrap = controls.createDiv({ cls: 'kokushi-picker-item' })
+      selectWrap.createEl('label', { text: '試験' })
+      const select = selectWrap.createEl('select', { cls: 'kokushi-select' })
+      for (const exam of exams) {
+        const optionEl = select.createEl('option', { text: examLabel(exam) })
+        optionEl.value = exam
+      }
 
-      el.createEl('p', {
-        text: `10分で潰すならここ（トピック別ワースト${topicLimit}）`,
-        cls: 'kokushi-section-title',
-      })
-      const topicRows = aggregateWeakness(
-        questions.flatMap((q) => q.tags.map((tag) => ({ key: tag, id: q.id }))),
-        states,
-        examDate,
-      ).filter((row) => row.weak > 0)
-      renderRows(el, topicRows.slice(0, topicLimit), plugin, 'tag')
+      const body = el.createDiv()
+
+      const draw = (exam: string): void => {
+        try {
+          body.empty()
+          const examQuestions = questions.filter((q) => q.exam === exam)
+
+          renderHisshu(body, examQuestions, entries, config.hisshu)
+
+          body.createEl('p', { text: `${examLabel(exam)} 分野別（全体像）`, cls: 'kokushi-section-title' })
+          renderRows(
+            body,
+            aggregateWeakness(examQuestions.map((q) => ({ key: q.field, id: q.id })), states, examDate),
+            plugin,
+            'field',
+          )
+
+          body.createEl('p', {
+            text: `10分で潰すならここ（${examLabel(exam)} トピック別ワースト${topicLimit}）`,
+            cls: 'kokushi-section-title',
+          })
+          const topicRows = aggregateWeakness(
+            examQuestions.flatMap((q) => q.tags.map((tag) => ({ key: tag, id: q.id }))),
+            states,
+            examDate,
+          ).filter((row) => row.weak > 0)
+          renderRows(body, topicRows.slice(0, topicLimit), plugin, 'tag')
+        } catch (error) {
+          body.empty()
+          body.createEl('p', { text: RENDER_ERROR })
+          console.error('kokushi-srs: 表示に失敗しました', error)
+        }
+      }
+
+      select.value = exams[0]
+      select.onchange = () => draw(select.value)
+      draw(exams[0])
     } catch (error) {
       el.empty()
       el.createEl('p', { text: RENDER_ERROR })
