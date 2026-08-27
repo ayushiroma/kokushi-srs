@@ -3,6 +3,9 @@ import type KokushiPlugin from '../main'
 import type { QuestionMeta } from './questionIndex'
 import { advance, currentId, isFinished, progress, startSession } from '../core/session'
 import { parseChoiceNumbers } from '../core/choices'
+import { scoreExam, type ExamAnswer, type ExamQuestionInfo, type ExamScore } from '../core/examScore'
+import type { Result } from '../core/types'
+import { loadConfig } from './config'
 import { NEXT_HOST_CLASS, readAnswer, renderAnswerButtons } from './answerBlock'
 import { revealExplanation } from './explanation'
 
@@ -16,10 +19,13 @@ export function renderSession(
   plugin: KokushiPlugin,
   container: HTMLElement,
   questions: QuestionMeta[],
-  onExit: () => void
+  onExit: () => void,
+  examMode = false
 ): void {
   const byId = new Map(questions.map((q) => [q.id, q]))
   let state = startSession(questions.map((q) => q.id))
+  // 押し直しがあっても最後の1件だけを採用する（他のログ集計と同じ考え方）
+  const answers = new Map<string, Result>()
 
   // 問題ごとの MarkdownRenderer.render に渡す Component。plugin（長寿命）をそのまま
   // 渡すと、描画のたびに生成されるレンダラーの子コンポーネントが unload されずに
@@ -49,6 +55,20 @@ export function renderSession(
     if (isFinished(state)) {
       const { total } = progress(state)
       container.createEl('p', { text: `${total}問解きました。` })
+
+      if (examMode) {
+        const config = await loadConfig(plugin.app)
+        const examAnswers: ExamAnswer[] = Array.from(answers, ([id, result]) => ({ id, result }))
+        const examQuestions: ExamQuestionInfo[] = questions.map((q) => ({
+          id: q.id,
+          exam: q.exam,
+          session: q.session,
+          number: q.number,
+        }))
+        const score = scoreExam(examAnswers, examQuestions, config.hisshu)
+        renderExamScore(container, score)
+      }
+
       const backBtn = container.createEl('button', { text: '一覧に戻る', cls: 'kokushi-btn' })
       backBtn.addEventListener('click', () => onExit())
       scrollToTop()
@@ -105,7 +125,8 @@ export function renderSession(
       choices: parseChoiceNumbers(raw),
       answer: readAnswer(frontmatter?.answer),
       choiceRoot: questionEl,
-      onAnswered: () => {
+      onAnswered: (result) => {
+        answers.set(id!, result)
         revealExplanation(plugin.app, questionEl, meta.path)
         // 「次へ」は判定結果のすぐ下（解説より上）に置く。
         // answerBlock が用意した置き場所を使う。見つからないときだけ従来の位置に置く。
@@ -146,4 +167,27 @@ export function renderSession(
   }
 
   void renderCurrentQuestion()
+}
+
+function renderExamScore(container: HTMLElement, score: ExamScore): void {
+  const box = container.createDiv({ cls: 'kokushi-exam-score' })
+  const pct = (rate: number | null): string => (rate === null ? '-' : `${Math.round(rate * 100)}%`)
+
+  if (score.hisshu !== null) {
+    const h = score.hisshu
+    const passNote =
+      h.passing === null ? '' : h.passing ? ' ✅ 8割ラインに到達' : ' ⚠️ 8割ラインに届いていません'
+    box.createEl('p', {
+      text: `必修　${h.correct}/${h.attempted}問（${pct(h.rate)}）${passNote}`,
+    })
+    const g = score.general
+    box.createEl('p', {
+      text: `一般　${g.correct}/${g.attempted}問（${pct(g.rate)}）※参考点数（合格ラインは公開されていません）`,
+    })
+  } else {
+    const t = score.total
+    box.createEl('p', {
+      text: `得点　${t.correct}/${t.attempted}問（${pct(t.rate)}）※参考点数（合格ラインは公開されていません）`,
+    })
+  }
 }

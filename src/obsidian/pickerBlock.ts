@@ -1,3 +1,4 @@
+import { isExamModeSelection } from '../core/examScore'
 import { EXAM_OPTIONS, STATUS_OPTIONS, TYPE_OPTIONS, type Option } from '../core/labels'
 import {
   EMPTY_SELECTION,
@@ -116,6 +117,7 @@ export function registerPickerBlock(plugin: KokushiPlugin): void {
         })
         practiceBtn.addEventListener('click', () => {
           practiceBtn.disabled = true
+          const examMode = isExamModeSelection(selection)
           void (async () => {
             try {
               const questions = (await filterQuestions(plugin, filter)).slice(0, filter.limit)
@@ -124,9 +126,15 @@ export function registerPickerBlock(plugin: KokushiPlugin): void {
                 return
               }
               el.empty()
-              renderSession(plugin, el, questions, () => {
-                void render()
-              })
+              renderSession(
+                plugin,
+                el,
+                questions,
+                () => {
+                  void render()
+                },
+                examMode
+              )
             } catch (error) {
               el.empty()
               el.createEl('p', { text: RENDER_ERROR })
