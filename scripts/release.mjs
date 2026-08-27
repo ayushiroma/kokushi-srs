@@ -51,7 +51,7 @@ async function main() {
   console.log(`   v${newVersion} に更新しました`)
 
   console.log('3/5 問題データをZIP化しています…')
-  const vaultDir = process.env.KOKUSHI_VAULT_DIR ?? 'G:\\マイドライブ\\000_My Obsidian\\国試対策\\中身'
+  const vaultDir = process.env.KOKUSHI_VAULT_DIR ?? 'G:\\マイドライブ\\000_My Obsidian\\国試対策\\データ'
   try {
     await stat(vaultDir)
   } catch {
