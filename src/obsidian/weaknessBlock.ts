@@ -130,7 +130,8 @@ export function registerWeaknessBlock(plugin: KokushiPlugin): void {
         return
       }
 
-      const selectWrap = el.createDiv({ cls: 'kokushi-picker-item' })
+      const controls = el.createDiv({ cls: 'kokushi-picker' })
+      const selectWrap = controls.createDiv({ cls: 'kokushi-picker-item' })
       selectWrap.createEl('label', { text: '試験' })
       const select = selectWrap.createEl('select', { cls: 'kokushi-select' })
       for (const exam of exams) {
@@ -141,29 +142,35 @@ export function registerWeaknessBlock(plugin: KokushiPlugin): void {
       const body = el.createDiv()
 
       const draw = (exam: string): void => {
-        body.empty()
-        const examQuestions = questions.filter((q) => q.exam === exam)
+        try {
+          body.empty()
+          const examQuestions = questions.filter((q) => q.exam === exam)
 
-        renderHisshu(body, examQuestions, entries, config.hisshu)
+          renderHisshu(body, examQuestions, entries, config.hisshu)
 
-        body.createEl('p', { text: `${examLabel(exam)} 分野別（全体像）`, cls: 'kokushi-section-title' })
-        renderRows(
-          body,
-          aggregateWeakness(examQuestions.map((q) => ({ key: q.field, id: q.id })), states, examDate),
-          plugin,
-          'field',
-        )
+          body.createEl('p', { text: `${examLabel(exam)} 分野別（全体像）`, cls: 'kokushi-section-title' })
+          renderRows(
+            body,
+            aggregateWeakness(examQuestions.map((q) => ({ key: q.field, id: q.id })), states, examDate),
+            plugin,
+            'field',
+          )
 
-        body.createEl('p', {
-          text: `10分で潰すならここ（${examLabel(exam)} トピック別ワースト${topicLimit}）`,
-          cls: 'kokushi-section-title',
-        })
-        const topicRows = aggregateWeakness(
-          examQuestions.flatMap((q) => q.tags.map((tag) => ({ key: tag, id: q.id }))),
-          states,
-          examDate,
-        ).filter((row) => row.weak > 0)
-        renderRows(body, topicRows.slice(0, topicLimit), plugin, 'tag')
+          body.createEl('p', {
+            text: `10分で潰すならここ（${examLabel(exam)} トピック別ワースト${topicLimit}）`,
+            cls: 'kokushi-section-title',
+          })
+          const topicRows = aggregateWeakness(
+            examQuestions.flatMap((q) => q.tags.map((tag) => ({ key: tag, id: q.id }))),
+            states,
+            examDate,
+          ).filter((row) => row.weak > 0)
+          renderRows(body, topicRows.slice(0, topicLimit), plugin, 'tag')
+        } catch (error) {
+          body.empty()
+          body.createEl('p', { text: RENDER_ERROR })
+          console.error('kokushi-srs: 表示に失敗しました', error)
+        }
       }
 
       select.value = exams[0]
