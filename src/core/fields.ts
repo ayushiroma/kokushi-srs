@@ -68,3 +68,22 @@ export function fieldsOf(exam: string): readonly string[] {
 export function examLabel(exam: string): string {
   return EXAM_LABELS[exam] ?? exam
 }
+
+/**
+ * 得意・苦手ページの試験切り替えドロップダウンで使う一覧。
+ *
+ * `config.scope` は現状どこからも参照されておらず、Vaultの実際の問題データと
+ * ズレていても検知できない。代わりに実際に存在する `exam` の値から作ることで、
+ * 設定ファイルとVaultの中身が食い違う心配を無くす（knowledgeMap.tsの並び替えと同じ考え方）。
+ */
+export function presentExams(exams: readonly string[]): string[] {
+  const unique = [...new Set(exams)]
+  return unique.sort((a, b) => {
+    const ia = EXAM_ORDER.indexOf(a)
+    const ib = EXAM_ORDER.indexOf(b)
+    if (ia !== ib) {
+      return (ia === -1 ? Number.MAX_SAFE_INTEGER : ia) - (ib === -1 ? Number.MAX_SAFE_INTEGER : ib)
+    }
+    return a.localeCompare(b)
+  })
+}
